@@ -1,0 +1,220 @@
+{
+  "hespress.com": [
+    "https://www.hespress.com/feed",
+    "https://www.hespress.com/regions/feed",
+    "https://www.hespress.com/economie/feed",
+    "https://www.hespress.com/politique/feed",
+    "https://www.hespress.com/tag/%D9%88%D8%B2%D8%A7%D8%B1%D8%A9-%D8%A7%D9%84%D8%AF%D8%A7%D8%AE%D9%84%D9%8A%D8%A9/feed",
+    "https://www.hespress.com/feed/",
+    "https://www.hespress.com/rss",
+    "https://www.hespress.com/rss/",
+    "https://www.hespress.com/atom",
+    "https://www.hespress.com/?feed=rss2",
+    "https://www.hespress.com/?feed=rss"
+  ],
+  "rhamna24.ma": [
+    "http://www.rhamna24.ma/feed/"
+  ],
+  "hakaikpress.com": [
+    "https://www.hakaikpress.com/xml/syndication.rss"
+  ],
+  "bladpress.com": [
+    "https://www.bladpress.com/feed",
+    "https://www.bladpress.com/archives/category/%D8%A3%D8%AE%D8%A8%D8%A7%D8%B1-%D8%A7%D9%84%D8%AC%D9%85%D8%A7%D8%B9%D8%A7%D8%AA-%D8%A7%D9%84%D9%85%D8%AD%D9%84%D9%8A%D8%A9/feed",
+    "https://www.bladpress.com/archives/category/%D9%82%D8%B6%D8%A7%D8%A1-%D8%A7%D9%84%D9%85%D8%AD%D8%A7%D9%83%D9%85-%D9%88%D8%A7%D9%84%D8%B4%D9%83%D8%A7%D9%8A%D8%A7%D8%AA/feed",
+    "https://www.bladpress.com/archives/category/%d8%a3%d8%ae%d8%a8%d8%a7%d8%b1-%d9%88%d8%b7%d9%86%d9%8a%d8%a9",
+    "https://www.bladpress.com/archives/category/%D8%AA%D9%82%D8%A7%D8%B1%D9%8A%D8%B1/feed"
+  ],
+  "fajrpress.com": [
+    "https://fajrpress.com/?feed=rss2"
+  ],
+  "albahja24.ma": [
+    "https://albahja24.ma/feed/"
+  ],
+  "choalapress.com": [
+    "https://www.choalapress.com/feed/",
+    "https://www.choalapress.com/feed",
+    "https://www.choalapress.com/rss",
+    "https://www.choalapress.com/rss/",
+    "https://www.choalapress.com/atom",
+    "https://www.choalapress.com/?feed=rss2",
+    "https://www.choalapress.com/?feed=rss"
+  ],
+  "4tanmia.com": [
+    "https://www.4tanmia.com/feed"
+  ],
+  "aljiha24.ma": [
+    "https://aljiha24.ma/feed/",
+    "https://aljiha24.ma/articles/category/%D8%A7%D9%84%D8%AC%D9%87%D8%A9/%D8%A7%D9%84%D8%B1%D8%AD%D8%A7%D9%85%D9%86%D8%A9/feed/"
+  ],
+  "hnews.ma": [
+    "https://hnews.ma/feed/"
+  ],
+  "maghrebnews.ma": [
+    "https://maghrebnews.ma/?feed=rss2"
+  ],
+  "awal24.com": [
+    "https://awal24.com/feed"
+  ],
+  "journalaswate.com": [
+    "https://journalaswate.com/feed/"
+  ],
+  "k24.ma": [
+    "https://www.k24.ma/feed"
+  ],
+  "jamaalfnapress.ma": [
+    "https://jamaalfnapress.ma/?feed=rss2"
+  ],
+  "benews.ma": [
+    "https://benews.ma/?feed=rss2"
+  ],
+  "bnews.ma": [
+    "https://www.bnews.ma/feeds/posts/default?alt=rss"
+  ],
+  "mamlakapress.com": [
+    "https://www.mamlakapress.com/feed"
+  ],
+  "alminbartv.com": [
+    "https://alminbartv.com/feed/",
+    "https://alminbartv.com/category/%D8%AC%D9%87%D9%88%D9%8A/feed/",
+    "https://alminbartv.com/category/%D9%88%D8%B7%D9%86%D9%8A%D8%A9/feed/"
+  ],
+  "naharpress.com": [
+    "https://naharpress.com/feed/",
+    "https://naharpress.com/category/%D8%AD%D9%88%D8%A7%D8%AF%D8%AB-%D9%88-%D9%82%D8%B6%D8%A7%D9%8A%D8%A7-%D8%A7%D9%84%D9%85%D8%AD%D8%A7%D9%83%D9%85/feed/",
+    "https://naharpress.com/category/%D9%85%D8%AD%D9%84%D9%8A/feed/"
+  ],
+  "niyapress.com": [
+    "https://niyapress.com/feed/",
+    "https://niyapress.com/?feed=rss2"
+  ],
+  "almadarpress.com": [
+    "https://www.almadarpress.com/feeds/posts/default"
+  ],
+  "achewa9e3.com": [
+    "https://achewa9e3.com/feed"
+  ],
+  "hibapress.com": [
+    "https://ar.hibapress.com/feed"
+  ],
+  "kech24.com": [
+    "https://kech24.com/feed"
+  ],
+  "almarrakchi.com": [
+    "https://www.almarrakchi.com/feed/"
+  ],
+  "alkhabr24.com": [
+    "https://alkhabr24.com/?feed=rss2"
+  ],
+  "almihwar24.com": [
+    "https://almihwar24.com/feed/"
+  ],
+  "assabah.ma": [
+    "https://assabah.ma/feed"
+  ],
+  "voicetoday.ma": [
+    "https://voicetoday.ma/feed"
+  ],
+  "alayam24.com": [
+    "https://www.alayam24.com/feed"
+  ],
+  "sadahawz.blogspot.com": [
+    "https://sadahawz.blogspot.com/feeds/posts/default?alt=rss"
+  ],
+  "aljiha8.com": [
+    "https://aljiha8.com/feed"
+  ],
+  "marrakechpost.com": [
+    "https://marrakechpost.com/feed/"
+  ],
+  "pam.ma": [
+    "https://www.pam.ma/feed/"
+  ],
+  "madar21.com": [
+    "https://madar21.com/feed"
+  ],
+  "satv.ma": [
+    "https://satv.ma/feed"
+  ],
+  "siyassi.com": [
+    "https://www.siyassi.com/feed/"
+  ],
+  "albalad.ma": [
+    "https://albalad.ma/feed"
+  ],
+  "etoilepress.com": [
+    "https://www.etoilepress.com/?feed=rss2"
+  ],
+  "barlamane.com": [
+    "https://www.barlamane.com/feed/"
+  ],
+  "bilahodoud.ma": [
+    "https://www.bilahodoud.ma/?feed=rss2"
+  ],
+  "febrayer.com": [
+    "https://febrayer.com/feed/"
+  ],
+  "almaghrebeljadid.ma": [
+    "https://almaghrebeljadid.ma/feed"
+  ],
+  "alyaoum24.com": [
+    "https://alyaoum24.com/feed"
+  ],
+  "rue20.com": [
+    "https://rue20.com/feed"
+  ],
+  "majala24.ma": [
+    "https://majala24.ma/feed/"
+  ],
+  "ar.telquel.ma": [
+    "https://ar.telquel.ma/feed/"
+  ],
+  "aabbir.com": [
+    "https://aabbir.com/feed/"
+  ],
+  "achkayen.com": [
+    "https://www.achkayen.com/feed/"
+  ],
+  "badil.info": [
+    "https://badil.info/feed/"
+  ],
+  "lavieeco.com": [
+    "https://www.lavieeco.com/feed/"
+  ],
+  "lopinion.ma": [
+    "https://www.lopinion.ma/xml/syndication.rss"
+  ],
+  "challenge.ma": [
+    "https://www.challenge.ma/feed/"
+  ],
+  "mapexpress.ma": [
+    "https://www.mapexpress.ma/ar/feed/"
+  ],
+  "lesiteinfo.com": [
+    "https://ar.lesiteinfo.com/feed"
+  ],
+  "klamkom.com": [
+    "http://klamkom.com/feed/"
+  ],
+  "sabahagadir.ma": [
+    "https://sabahagadir.ma/feed"
+  ],
+  "sabahmarrakech.com": [
+    "https://sabahmarrakech.com/feed"
+  ],
+  "marrakechalaan.com": [
+    "https://www.marrakechalaan.com/feed"
+  ],
+  "alhayatalyaoumia.ma": [
+    "https://alhayatalyaoumia.ma/feed/"
+  ],
+  "tanwer.ma": [
+    "https://tanwer.ma/feed/"
+  ],
+  "marrakechalyaoum.com": [
+    "https://www.marrakechalyaoum.com/feed/"
+  ],
+  "echodiplomatiques.ma": [
+    "https://echodiplomatiques.ma/?feed=rss2"
+  ]
+}

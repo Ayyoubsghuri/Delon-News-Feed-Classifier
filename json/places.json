@@ -1,0 +1,36 @@
+{
+    "keywords": [
+        "AIT HAMMOU", "آيت حمو", "AIT TALEB", "آيت الطالب", "BOUCHANE", "بوشان", "OULAD AAMER TIZMARINE", "أولاد عامر تزمرين",
+        "LABRIKIYNE", "لبريكيين", "OULAD HASSOUNE HAMRI", "أولاد حسون حمري", "SIDI ALI LABRAHLA", "SIDI ALI LEBRAHLA", "سيدي علي لبراحلة", "سيدي علي البراحلة",
+        "OULED TMIM", "أولاد التميم", "اولاد التميم", "JAAFRA", "الجعافرة", "SIDI ABDELLAH", "سيدي عبد الله", "SKOURA LHADRA", "سكورة الحدرة",
+        "SKHOURS", "الصخور", "SIDI MANSOUR", "سيدي منصور", "SIDI-GHANEM", "SIDI GHANEM", "سيدي غانم", "SKHOUR RHAMNA", "صخورالرحامنة",
+        "JBILATE", "الجبيلات", "LEBHIRA", "البحيرة", "LAMHARRA", "'لمحرة", "OULAD IMLOUL", "أولاد املول", "LOTA", "لوطا", "NZALAT LAADAM", "انزالت لعظم",
+        "RAS EL AIN", "AKARMA", "عكرمة", "JAIDATE", "الجعيدات", "RAS AIN RHAMNA", "راس عين الرحامنة", "TLAUH", "TLOUH", "الطلوح",
+        "SIDI BOUOTHMANE", "BOURROUS", "بوروس", "SIDI BOUBKER", "سيدي بوبكر", "ابن جرير","بنجرير","BENGUERIR","BEN GUERIR" ,"SIDI BOUOTHMANE", "SIDI BOU OTHMANE", "سيدي بوعثمان", "سيدي بوعتمان",
+        "الرحامنة", "عزيز بوينيان", "التراب الوطني", "إضرابا عاما", "إضراب عام", "التضخم", "وزارة الداخلية", "محمد السادس","رحامنة","Aziz Bouinyane","rehamna","benguerir","yassine chlebi","rhamna",
+
+        "مراكش", "MARRAKECH", "المدينة القديمة", "Gueliz", "كليز", "المحاميد", "سيدي يوسف بن علي", "أغمات", "AGMAT", "المنارة", "MENARA",
+        "ضاية الرومي", "DAYET ROUMI", "سيدي غانم", "SIDI GHANEM", "أولاد الضعيف", "OULAD DRISS", "تاسلطانت", "TASSOULTANTE",
+
+        "أمزميز", "AMZMIZ", "أيت أورير", "AIT OURIR", "تامنصورت", "TAMANSOURT", "تيداس", "TIDAS", "سيدي رحال", "SIDI RAHHAL", 
+        "واحة النخيل", "OASIS NAKHIL", "مولاي إبراهيم", "MOULAY BRAHIM", "أوريكا", "OURIKA", "أسني", "ASNI", "إمليل", "IMLIL","تنصيب عامل إقليم","تنصيب عامل",
+        "تمنار", "TMENAR", "أيت فاسكا", "AIT FASK", "سيدي عبد العزيز", "SIDI ABDELAZIZ", "أيت سدرات", "AIT SEDRATE","politique","électorale",
+
+        "شيشاوة", "CHICHAOUA", "امنيك", "IMINTANOUT", "سيدي بوموسى", "SIDI BOUMOUSSA", "أولاد احمد", "OULAD AHMED",
+        "أولاد يحيى", "OULAD YAHIA", "بنياحي", "BNI YAKHLEF", "الكتامنة", "LOUKTATMA", "المزوضية", "MEZOUDA","ياسين الشبلي","عامل إقليم الرحامنة",
+
+        "قلعة السراغنة", "KELAA DES SRAGHNA", "سيدي رحال الشاطئ", "SIDI RAHHAL CHATAI", "الغربية", "LAGHOUABIA","جامعة محمد السادس", "UM6P",
+        "الوليدية", "OULADIA", "سيدي عبد الكريم", "SIDI ABDELKRIM", "الرماني", "LARMANI",
+
+        "الصويرة", "ESSAOUIRA", "سيدي كاوكي", "SIDI KAOUKI", "تالمست", "TALMEST", "سيدي أحمد", "SIDI AHMED",
+        "سيدي الجزولي", "SIDI EL JAZOULI", "سيدي بوعمر", "SIDI BOUMER", "سيدي اسماعيل", "SIDI ISMAIL","الاحتلال العشوائي","برلمان","سياسي",
+
+        "ضاية الحاجة", "DAYAT EL HAJJA", "خميس سيدي يحيى", "KHEMIS SIDI YAHYA", "سيدي عبد الجبار", "SIDI ABDELJABBAR","الأحزاب","تبيض أموال","تبيض الاموال",
+        "المنابهة", "MNABHA", "بني هلال", "BENI HILAL", "سكورة", "SKOURA", "حد الدرى", "HAD DRAÂ","مرشح","الفيدرالية","سياسية","حريق","الامن","قتـ ـل","العدالة و التنمية",
+        "جبل توبقال", "JEBEL TOUBKAL", "وادي أوريكا", "OUED OURIKA", "حديقة ماجوريل", "MAJORELLE GARDEN",
+        "محمد السادس", "عزيز أخنوش", "عبد الإله بنكيران", "سعد الدين العثماني", "عبد اللطيف وهبي","بوريطة","وهبي","اعتقال","انتخاب","اخنوش",
+        "السياسة","إبن جرير","الأراضي المغربية","الديوان الملكي","البرلمان","القنصل المغربي","الملكية","انتخابات","الملك","المال العام","إضراب"
+        ,"المرضي العقليين","ضابط أمن"
+
+    ]
+}
