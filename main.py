@@ -4,6 +4,9 @@ import pandas as pd
 from datetime import datetime, timezone, timedelta
 from dateutil import parser
 import os, json, random, feedparser
+from lxml import etree
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from uuid import uuid4
 from bs4 import BeautifulSoup
 from flask_cors import CORS
@@ -23,8 +26,9 @@ from sharedcountsdk import SharedCountApi
 import time,threading,psutil
 from flask import send_from_directory
 import openai
-
+from dotenv import load_dotenv
 # from pygame import mixer  # Add this import at the top of your file
+load_dotenv("secret.env")
 
 
 # Configure logging
@@ -48,7 +52,7 @@ class EnhancedClassifier:
                 r"(أمن|شرطة|مخابرات|طقس)|الأمن العام|الحرس الوطني|استقرار أمني|الآمنة",
             ],
             "شؤون جهوية": [
-                r"محافظة|ولاية|إقليم|عامل إقليم الرحامنة|ياسين الشبلي|منطقة|سيدي بوعثمان|مدينة|زلزال الحوز|دورة تكوينية|الحوز|قرية|احتجاج|بلدة|اسفي|جهة|محلي|تنمية محلية|تخطيط عمراني|خدمات عامة|مشاريع تنموية|سكان|ريف|حضر|مراكش|بركان|وزان|ابن جرير|وجدة|طنجة|فاس|سلا|الرباط|اكادير|الدار البيضاء",
+                r"محافظة|ولاية|إقليم|الرحامنة|عامل إقليم الرحامنة|ياسين الشبلي|منطقة|سيدي بوعثمان|مدينة|زلزال الحوز|دورة تكوينية|الحوز|قرية|احتجاج|بلدة|اسفي|جهة|محلي|تنمية محلية|تخطيط عمراني|خدمات عامة|مشاريع تنموية|سكان|ريف|حضر|مراكش|بركان|وزان|ابن جرير|وجدة|طنجة|فاس|سلا|الرباط|اكادير|الدار البيضاء",
                 r"محافظ|والي|بلدية|إدارة محلية|مجلس جهوي|وقفة تضامنية|تنمية مستدامة|ميزانية محلية|تطوير محلي",
             ],
             "مجالس منتخبة": [
@@ -60,7 +64,7 @@ class EnhancedClassifier:
                 r"انتخابات|ترشح|ناخبين|برلمان|النواب|مجلس النواب|حملة انتخابية|استحقاقات|سياسة خارجية|مفاوضات|سلطة سياسية",
             ],
             "مختلفات": [
-                r"ثقافة|فن|رياضة|تعليم|صحة|اقتصاد|سياحة|بيئة|تكنولوجيا|إعلام|ترفيه|حفلة|مسابقة|مهرجان|ترامب|مقهى|موسيقى|سينما|مسرح|كتاب|لقاء|أدب",
+                r"ثقافة|فن|رياضة|تعليم|صحة|اقتصاد|سياحة|بيئة|تكنولوجيا|إعلام|ترفيه|حفلة|مسابقة|مهرجان|ترامب|مقهى|موسيقى|كوبا|سينما|مسرح|كتاب|لقاء|أدب",
                 r"مدرسة|جامعة|مستشفى|ترمب|أمريكا|الاستثمار|بطولة|وزير الخارجية|كأس|مباراة|فيلم|بايدن|صفقة|معرض|مسلسل|برنامج تلفزيوني|راديو|صحافة|مقال|تغريدة|منشور|فيسبوك|تويتر|انستغرام",
             ]
         }
@@ -69,8 +73,8 @@ class EnhancedClassifier:
             "شؤون أمنية": {"عملية أمنية": 3,"جثة":15,"انتحار":15,"توقيف":17,"بتوقيف":15,"سرقة":10,"تخريب":10,"تبيض أموال":10,"مخدرات":9,"اغتصاب":10,"استغلال جنسي":10,"أسلحة بيضاء":10,"الاحتلال العشوائي":5,"كريساج":11,"قضية فساد":15,"متهم":10,"تبيض الاموال":10, "مخابرات": 2,"قتل": 16,"الدرك الملكي":6,"قتـ ـل":5,"التراب الوطني": 7,"تحقيق":10,"جرائم الفساد":15,"بالسجن":10,"جريمة":10,"حريق":10,"حملة أمنية": 6,"اعتداء":10,"اعتقال":10, "إرهاب": 10,"الامن":5},
             "شؤون سياسية": {"حزب": 2,"مجلس النواب":15,"الأحزاب":10, "برلمان": 2, "حكومة": 2,"سياسي":20,"النواب":10,"وزارة الداخلية":10,"وزارة":8,"الفيدرالية":10,"وزير":10,"وزير الداخلية":10, "وهبي": 15,"العدالة و التنمية":10,"بوريطة":10,"عبد الوافي":10, "اخنوش": 15},
             "مجالس منتخبة": {"انتخاب":10,"جماعة": 15,"القيادة الجماعية":60,"الجماعات الترابية":20,"الجماعات":30,"رئاسة جماعة":10, "جماعات": 19,"انتخابات": 9,"مرشح":9,"المجلس الجماعي":10,"مجالس منتخبة":10,"موظف الجماعي":10},
-            "شؤون جهوية": {"مراكش": 15,"سيدي بوعثمان":53,"um6p":20,"جامعة محمد السادس":30,"ياسين الشبلي":15,"عامل إقليم الرحامنة":30, "اسفي": 2,"زلزال الحوز":10,"بنية التحتية":10,"صاعقة رعدية":5,"حادث":10,"وقفة تضامنية":10,"احتجاج":10, "ابن جرير": 2,"بنايات عشوائية":5,"الحوز":11,"قلعة السراغنة":5,"الرحامنة":5,"ندوة": 4,"الحوز":10},
-            "مختلفات":{"الدار البيضاء":6,"الاتحاد الاوروبي":10,"أمريكا":15,"وزير الخارجية":10,"الاستثمار":10,"بريطانيا":15,"إسرائيل":20,"الولايات المتحدة":20,"الجزائر":10,"فيسبوك":5,"تويتر":5,"موريتانيا":15,"انستغرام":5,"مهرجان":5,"موسيقى":5,"فيلم":5,"مسلسل":5,"برنامج تلفزيوني":5,"راديو":5,"صحافة":5,"مقال":5,"تغريدة":5,"منشور":5},
+            "شؤون جهوية": {"مراكش": 15,"الرحامنة":15,"سيدي بوعثمان":53,"um6p":20,"جامعة محمد السادس":30,"ياسين الشبلي":15,"عامل إقليم الرحامنة":30, "اسفي": 2,"زلزال الحوز":10,"بنية التحتية":10,"صاعقة رعدية":5,"حادث":10,"وقفة تضامنية":10,"احتجاج":10, "ابن جرير": 10,"بنايات عشوائية":5,"الحوز":11,"قلعة السراغنة":5,"ندوة": 4,"الحوز":10},
+            "مختلفات":{"الدار البيضاء":30,"الاتحاد الاوروبي":10,"أمريكا":15,"وزير الخارجية":10,"الاستثمار":10,"بريطانيا":15,"إسرائيل":20,"الولايات المتحدة":20,"الجزائر":10,"فيسبوك":5,"تويتر":5,"موريتانيا":15,"انستغرام":5,"مهرجان":5,"موسيقى":5,"فيلم":5,"مسلسل":5,"ترامب":30,"برنامج تلفزيوني":5,"راديو":5,"صحافة":5,"مقال":5,"تغريدة":5,"منشور":5},
         }
 
         self.city_keywords = r"مراكش|اسفي|ابن جرير|وجدة|طنجة|فاس|سلا|الرباط|اكادير|الدار البيضاء"
@@ -191,16 +195,17 @@ def get_db_connection():
     return conn
 
 class SummarizationConfig:
-    """Configuration for summarization"""
-    API_KEY_FILE = "apikeyroute.txt"  # Adjust path as needed
-    MODELS = [
-        "meta-llama/llama-3.3-70b-instruct:free",
-        "openai/gpt-oss-20b:free"
-    ]
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+    OPENROUTER_MODEL = os.getenv(
+        "OPENROUTER_MODEL",
+    )
+    OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
     TEMPERATURE = 0.3
     MIN_DELAY = 2
     MAX_DELAY = 4
-    OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+
 
 
 def limit_size(value, max_len=MAX_FIELD_SIZE):
@@ -218,8 +223,8 @@ class SummarizationError(Exception):
 def load_api_keys():
     """Load API keys from file"""
     try:
-        with open(SummarizationConfig.API_KEY_FILE, "r") as file:
-            keys = [line.strip() for line in file if line.strip()]
+        api_key = SummarizationConfig.OPENROUTER_API_KEY
+        keys = [key.strip() for key in api_key.split(",") if key.strip()]
         if not keys:
             raise ValueError(f"No API keys found in {SummarizationConfig.API_KEY_FILE}")
         return keys
@@ -227,71 +232,76 @@ def load_api_keys():
         raise FileNotFoundError(f"API key file {SummarizationConfig.API_KEY_FILE} not found")
 
 def summarize_article_content(content, max_retries=3):
-    """Summarize article content using AI"""
+    """Summarize article content using OpenRouter AI"""
+
     if not content or len(content.strip()) < 50:
         logger.warning("Content too short for summarization")
         return None
-    
-    try:
-        api_keys = load_api_keys()
-        if not api_keys:
-            logger.error("No API keys available for summarization")
-            return None
-        
-        logger.info(f"Attempting summarization with {len(api_keys)} API keys")
-        
-        for attempt in range(max_retries):
-            try:
-                api_key = api_keys[attempt % len(api_keys)]
-                current_model = SummarizationConfig.MODELS[attempt % len(SummarizationConfig.MODELS)]
-                
-                logger.info(f"Attempt {attempt + 1} with model: {current_model}")
-                
-                client = openai.OpenAI(
-                    api_key=api_key,
-                    base_url=SummarizationConfig.OPENROUTER_BASE_URL
-                )
-                
-                prompt = f"""
-                قم بتلخيص النص التالي بشكل واضح ومختصر مع الحفاظ على النقاط الرئيسية.
-                اكتب الملخص باللغة العربية في فقرة واحدة وبصيغة الماضي:
-                
-                {content[:3000]}  # Limit content length to avoid token limits
-                """
-                
-                messages = [
-                    {"role": "system", "content": "أنت مساعد متخصص في تلخيص النصوص العربية."},
-                    {"role": "user", "content": prompt}
-                ]
-                
-                response = client.chat.completions.create(
-                    model=current_model,
-                    messages=messages,
-                    temperature=SummarizationConfig.TEMPERATURE,
-                    max_tokens=500
-                )
-                
-                summary = response.choices[0].message.content.strip()
-                
-                # Add delay to prevent rate limiting
-                delay = random.uniform(SummarizationConfig.MIN_DELAY, SummarizationConfig.MAX_DELAY)
-                logger.info(f"Summarization successful, waiting {delay:.2f}s")
-                time.sleep(delay)
-                
-                return summary
-                
-            except Exception as e:
-                logger.warning(f"Summarization attempt {attempt + 1} failed: {str(e)}")
-                if attempt < max_retries - 1:
-                    time.sleep(2)
-                continue
-        
-        logger.error(f"Failed to summarize article after {max_retries} attempts")
+
+    api_key = SummarizationConfig.OPENROUTER_API_KEY
+    model = SummarizationConfig.OPENROUTER_MODEL
+
+    if not api_key:
+        logger.error("OPENROUTER_API_KEY is missing")
         return None
-        
-    except Exception as e:
-        logger.error(f"Unexpected error in summarization: {str(e)}")
-        return None
+
+    client = openai.OpenAI(
+        api_key=api_key,
+        base_url=SummarizationConfig.OPENROUTER_BASE_URL
+    )
+
+    prompt_template = """
+قم بتلخيص النص التالي بشكل واضح ومختصر مع الحفاظ على النقاط الرئيسية.
+اكتب الملخص باللغة العربية في فقرة واحدة وبصيغة الماضي:
+
+{content}
+"""
+
+    for attempt in range(max_retries):
+        try:
+            logger.info(
+                f"Summarization attempt {attempt + 1}/{max_retries} using model: {model}"
+            )
+
+            prompt = prompt_template.format(
+                content=content[:3000]  # prevent token overflow
+            )
+
+            messages = [
+                {"role": "system", "content": "أنت مساعد متخصص في تلخيص النصوص العربية."},
+                {"role": "user", "content": prompt}
+            ]
+
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=SummarizationConfig.TEMPERATURE,
+                max_tokens=500
+            )
+
+            summary = response.choices[0].message.content.strip()
+
+            delay = random.uniform(
+                SummarizationConfig.MIN_DELAY,
+                SummarizationConfig.MAX_DELAY
+            )
+            logger.info(f"Summarization successful, waiting {delay:.2f}s")
+            time.sleep(delay)
+
+            return summary
+
+        except Exception as e:
+            logger.warning(
+                f"Summarization attempt {attempt + 1} failed: {e}",
+                exc_info=True
+            )
+
+            if attempt < max_retries - 1:
+                time.sleep(2)
+
+    logger.error(f"Failed to summarize article after {max_retries} attempts")
+    return None
+
     
 def get_article_summary(article_id):
     """
@@ -747,20 +757,234 @@ def delete_place():
 #         logger.error(f"Error in get-share-counts: {str(e)}", exc_info=True)
 #         return jsonify({"error": "Failed to get share counts"}), 500
 
-def safe_parse_feed(url):
+class _FallbackEntry(dict):
     """
-    Parse RSS feed and handle malformed XML gracefully.
-    Returns feedparser.FeedParserDict or None if parse failed.
+    Dict that also supports attribute access (entry.published as well as
+    entry.get("published")), matching feedparser.FeedParserDict's behavior.
+    Missing attributes return None rather than raising, same as feedparser.
+    """
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError:
+            return None
+
+    def __setattr__(self, name, value):
+        self[name] = value
+
+
+class _FallbackFeed:
+    """
+    Minimal stand-in for a feedparser.FeedParserDict result, used only when
+    feedparser itself fails to recover any entries from a malformed feed.
+    Downstream code only ever touches `.entries` (a list of dict-like items
+    accessed via .get(...) or attribute access), so _FallbackEntry covers both.
+    """
+    def __init__(self, entries):
+        self.entries = [e if isinstance(e, _FallbackEntry) else _FallbackEntry(e) for e in entries]
+        self.bozo = True
+
+
+_RSS_NAMESPACES = {
+    "content": "http://purl.org/rss/1.0/modules/content/",
+    "dc": "http://purl.org/dc/elements/1.1/",
+    "media": "http://search.yahoo.com/mrss/",
+}
+
+
+def _text_or_none(el):
+    if el is None:
+        return None
+    return "".join(el.itertext()).strip()
+
+
+_INVALID_XML_CHARS_RE = re.compile(
+    '[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]'
+)
+
+
+def _sanitize_xml_bytes(content):
+    """
+    Strip characters that are illegal in XML 1.0 (control chars other than
+    \\t \\n \\r) and cause lxml/expat to raise 'not well-formed (invalid token)'
+    even in recover mode. Works on bytes or str and returns bytes (utf-8).
+    """
+    if content is None:
+        return content
+    if isinstance(content, bytes):
+        try:
+            text = content.decode("utf-8", errors="replace")
+        except Exception:
+            text = content.decode("latin-1", errors="replace")
+    else:
+        text = content
+    text = _INVALID_XML_CHARS_RE.sub("", text)
+    return text.encode("utf-8")
+
+
+def parse_feed_with_recovery(url):
+    """
+    Fallback parser for feeds that feedparser can't recover entries from at all
+    (e.g. a hard mismatched-tag error that stops it before it reaches any <item>).
+    Uses lxml's libxml2 binding with recover=True, which is much better at
+    pushing through malformed XML like unclosed/mismatched tags while still
+    reconstructing a usable tree.
+
+    Returns a list of dict entries (feedparser-entry-shaped) or [] on failure.
     """
     try:
+        resp = requests.get(
+            url,
+            timeout=15,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; RSSHealthBot/1.0)"},
+        )
+        resp.raise_for_status()
+        content = resp.content
+    except requests.exceptions.SSLError as e:
+        logger.warning(f"SSL verification failed for {url} ({str(e)}); retrying without verification")
+        try:
+            resp = requests.get(
+                url,
+                timeout=15,
+                headers={"User-Agent": "Mozilla/5.0 (compatible; RSSHealthBot/1.0)"},
+                verify=False,
+            )
+            resp.raise_for_status()
+            content = resp.content
+        except Exception as e2:
+            logger.warning(f"Fallback fetch (no-verify) also failed for {url}: {str(e2)}")
+            return []
+    except Exception as e:
+        logger.warning(f"Fallback fetch failed for {url}: {str(e)}")
+        return []
+
+    content = _sanitize_xml_bytes(content)
+
+    try:
+        parser_ = etree.XMLParser(recover=True, huge_tree=True)
+        root = etree.fromstring(content, parser=parser_)
+    except Exception as e:
+        logger.warning(f"Fallback lxml parse failed for {url}: {str(e)}")
+        return []
+
+    if root is None:
+        return []
+
+    items = root.findall(".//item")
+    entries = []
+    for item in items:
+        title = _text_or_none(item.find("title")) or "No Title"
+        link = _text_or_none(item.find("link")) or "No Link"
+        pub_date = _text_or_none(item.find("pubDate")) or ""
+        description = _text_or_none(item.find("description")) or ""
+
+        content_encoded_el = item.find("content:encoded", namespaces=_RSS_NAMESPACES)
+        content_value = _text_or_none(content_encoded_el) or description
+
+        media_url = None
+        media_el = item.find("media:content", namespaces=_RSS_NAMESPACES)
+        if media_el is not None:
+            media_url = media_el.get("url")
+
+        entries.append({
+            "title": title,
+            "link": link,
+            "published": pub_date,
+            "summary": description,
+            "content": [{"value": content_value}],
+            "media_content": [{"url": media_url}] if media_url else [{}],
+        })
+
+    return entries
+
+
+def safe_parse_feed(url, return_status=False):
+    """
+    Parse RSS feed and handle malformed XML gracefully.
+
+    feedparser is lenient by design: it will often recover and still populate
+    `feed.entries` even when it sets `feed.bozo = True` (e.g. a "mismatched tag"
+    warning from a WordPress export). Previously we discarded the whole feed
+    whenever bozo was set, which silently dropped feeds that were actually fine.
+    Now we only treat a feed as failed if it produced no usable entries.
+
+    On top of that, some malformed feeds cause feedparser to bail out with
+    *zero* entries even though the XML is still substantially valid (e.g. a
+    mismatched tag near the top stops feedparser's own SAX recovery before it
+    ever reaches an <item>). For that case we fall back to an lxml
+    recover=True parser, which reconstructs the tree and lets us pull the
+    <item> elements out manually.
+
+    Returns:
+        - If return_status is False (default): feedparser.FeedParserDict-like or None.
+        - If return_status is True: (feed_or_None, status_dict) where status_dict
+          has keys: status ("ok" | "ok_with_warnings" | "error"),
+          entry_count, error_message.
+    """
+    status = {"status": "ok", "entry_count": 0, "error_message": ""}
+    try:
         feed = feedparser.parse(url)
+        entry_count = len(feed.entries) if feed.entries else 0
+        status["entry_count"] = entry_count
+
         if feed.bozo:
-            logger.warning(f"Feed {url} parse error: {feed.bozo_exception}")
-            return None
-        return feed
+            warning_msg = str(feed.bozo_exception) if feed.bozo_exception else "Unknown parse warning"
+
+            if entry_count > 0:
+                # feedparser recovered fine, entries are usable - just note the warning.
+                logger.warning(f"Feed {url} had a parse warning but recovered ({entry_count} entries): {warning_msg}")
+                status["status"] = "ok_with_warnings"
+                status["error_message"] = warning_msg
+                return (feed, status) if return_status else feed
+
+            # feedparser got nothing - if this looks like an invalid XML token/control
+            # character issue, try re-parsing sanitized bytes directly with feedparser
+            # first (cheap and often fully recovers the feed, entries and all).
+            if "not well-formed" in warning_msg.lower() or "invalid token" in warning_msg.lower():
+                try:
+                    resp = requests.get(
+                        url,
+                        timeout=15,
+                        headers={"User-Agent": "Mozilla/5.0 (compatible; RSSHealthBot/1.0)"},
+                    )
+                    sanitized = _sanitize_xml_bytes(resp.content)
+                    sanitized_feed = feedparser.parse(sanitized)
+                    sanitized_count = len(sanitized_feed.entries) if sanitized_feed.entries else 0
+                    if sanitized_count > 0:
+                        logger.warning(f"Feed {url} recovered {sanitized_count} entries after stripping invalid XML characters")
+                        status["status"] = "ok_with_fallback"
+                        status["entry_count"] = sanitized_count
+                        status["error_message"] = f"{warning_msg} (recovered by stripping invalid XML characters)"
+                        return (sanitized_feed, status) if return_status else sanitized_feed
+                except Exception as e2:
+                    logger.warning(f"Sanitized re-parse failed for {url}: {str(e2)}")
+
+            # Still nothing - try the lxml recovery fallback before giving up.
+            logger.warning(f"Feed {url} parse error, no entries recovered by feedparser ({warning_msg}); trying lxml recovery")
+            fallback_entries = parse_feed_with_recovery(url)
+            if fallback_entries:
+                logger.warning(f"Feed {url} recovered {len(fallback_entries)} entries via lxml fallback")
+                status["status"] = "ok_with_fallback"
+                status["entry_count"] = len(fallback_entries)
+                status["error_message"] = f"{warning_msg} (recovered via lxml fallback)"
+                fallback_feed = _FallbackFeed(fallback_entries)
+                return (fallback_feed, status) if return_status else fallback_feed
+
+            status["status"] = "error"
+            status["error_message"] = warning_msg
+            return (None, status) if return_status else None
+
+        if entry_count == 0:
+            status["status"] = "error"
+            status["error_message"] = "Feed parsed but contains no entries"
+            return (None, status) if return_status else None
+
+        return (feed, status) if return_status else feed
     except Exception as e:
         logger.error(f"Failed to parse feed {url}: {str(e)}")
-        return None
+        status["status"] = "error"
+        status["error_message"] = str(e)
+        return (None, status) if return_status else None
     
 def init_db():
     """Initialize the database with required tables."""
@@ -1286,9 +1510,232 @@ def save_articles_to_db(articles):
 
 
 
-SHAREDCOUNT_API_KEY = "6e07a00a0935833ad0addf6e3468ceca7a90fd3a"  
+SHARED_API_KEY = os.getenv("SHARED_API_KEY")
+SHARED_API_ENDPOINT = os.getenv("SHARED_API_ENDPOINT")
 
-sharedcount_api = SharedCountApi(SHAREDCOUNT_API_KEY)
+sharedcount_api = SharedCountApi(apiToken=SHARED_API_KEY)
+
+
+if not SHARED_API_KEY:
+    raise RuntimeError("SHARED_API_KEY not set in secret.env")
+
+
+# main.py - Updated AI Agent endpoint with TODAY-ONLY data
+
+@app.route("/ai-agent/chat", methods=["POST"])
+def ai_agent_chat():
+    """
+    AI Agent endpoint that ONLY uses today's articles.
+    Reasons, searches, and summarizes before responding.
+    """
+    data = request.get_json()
+    user_query = data.get('query', '').strip()
+    
+    if not user_query:
+        return jsonify({"error": "Query is required"}), 400
+
+    try:
+        # Get today's date in local timezone
+        today = datetime.now().strftime('%Y-%m-%d')
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # STRICT FILTER: Only today's articles
+        # We search across title, description, and content
+        search_term = f"%{user_query}%"
+        
+        cursor.execute('''
+            SELECT id, title, description, content, source, pubDate, category,
+                   matched_places, summary
+            FROM articles 
+            WHERE DATE(timestamp) = ?
+            AND (
+                title LIKE ? OR 
+                description LIKE ? OR 
+                content LIKE ? OR
+                category LIKE ? OR
+                matched_places LIKE ?
+            )
+            ORDER BY timestamp DESC
+            LIMIT 15
+        ''', (today, search_term, search_term, search_term, search_term, search_term))
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        articles = [dict(row) for row in rows]
+        
+        # If no articles found with keyword, try broader search (all today's articles)
+        if not articles and user_query.lower() in ["news", "today", "summary", "what's new", "update"]:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, title, description, content, source, pubDate, category,
+                       matched_places, summary
+                FROM articles 
+                WHERE DATE(timestamp) = ?
+                ORDER BY timestamp DESC
+                LIMIT 15
+            ''', (today,))
+            rows = cursor.fetchall()
+            conn.close()
+            articles = [dict(row) for row in rows]
+
+        # Prepare context for AI (today's articles only)
+        if articles:
+            articles_context = "\n---\n".join([
+                f"Article {i+1}:\n"
+                f"Title: {a['title']}\n"
+                f"Source: {a['source']}\n"
+                f"Category: {a.get('category', 'General')}\n"
+                f"Description: {a['description'][:300] if a['description'] else 'N/A'}...\n"
+                f"Content Preview: {a['content'][:300] if a['content'] else 'N/A'}..."
+                for i, a in enumerate(articles)
+            ])
+        else:
+            articles_context = "No articles found for today matching your query."
+
+        # AI Agent Prompt
+        system_prompt = f"""You are an AI news assistant with access ONLY to TODAY's news articles ({today}).
+The user speaks Moroccan Darija, Arabic, or English. Respond in the SAME LANGUAGE as the user's query.
+
+CRITICAL RULES:
+1. You can ONLY discuss articles from TODAY ({today}). Do not mention or pretend to know about past/future news.
+2. If the user asks about something not in today's articles, honestly say "I don't see any articles about that in today's news."
+3. When summarizing, explicitly state you're covering "today's news" or "أخبار اليوم".
+
+Your capabilities:
+- Search for specific topics in today's articles
+- Provide summaries of today's news by category
+- Answer questions based ONLY on the provided article content
+- Extract key information from specific articles
+
+TODAY'S AVAILABLE ARTICLES:
+{articles_context}
+
+Return a JSON object with:
+- "response_text": Your spoken response (in user's language)
+- "action": "search" (show articles), "summarize" (provide overview), or "read" (focus on specific article)
+- "search_query": Refined search term for frontend filtering (if applicable)
+- "summary": Concise summary of findings (if applicable)
+- "relevant_article_ids": List of relevant article IDs (max 3) that best answer the query
+- "category_focus": Main category discussed (e.g., "شؤون أمنية", "Politics")"""
+
+        user_prompt = f"User Query: {user_query}\n\nPlease respond based ONLY on today's articles provided above."
+
+        # Call OpenAI/OpenRouter
+        client = openai.OpenAI(
+            api_key=os.getenv("OPENROUTER_API_KEY"),
+            base_url="https://openrouter.ai/api/v1"
+        )
+        
+        completion = client.chat.completions.create(
+            model="openai/gpt-4o-mini",
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.5,  # Lower temperature for more factual responses
+            max_tokens=800
+        )
+        
+        ai_output = json.loads(completion.choices[0].message.content)
+        
+        # Add metadata about today's data
+        ai_output["today_date"] = today
+        ai_output["total_today_articles"] = len(articles)
+        ai_output["found_articles"] = len(articles) > 0
+        
+        # If agent identified specific articles, fetch their full summaries if needed
+        if ai_output.get('relevant_article_ids') and len(ai_output['relevant_article_ids']) > 0:
+            # Could optionally trigger summary generation here
+            pass
+
+        return jsonify({
+            "success": True,
+            "agent_response": ai_output.get('response_text', "I found some articles for you."),
+            "action": ai_output.get('action', 'search'),
+            "search_query": ai_output.get('search_query', user_query),
+            "summary": ai_output.get('summary'),
+            "article_ids": ai_output.get('relevant_article_ids', []),
+            "category_focus": ai_output.get('category_focus'),
+            "today_date": today,
+            "articles_found_count": len(articles),
+            "timestamp": datetime.now().isoformat()
+        })
+
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parsing error in AI response: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": "AI response format error",
+            "fallback_query": user_query
+        }), 500
+    except Exception as e:
+        logger.error(f"AI Agent error: {str(e)}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "fallback_query": user_query
+        }), 500
+
+
+@app.route("/ai-agent/today-stats", methods=["GET"])
+def get_today_stats_for_agent():
+    """
+    Quick endpoint to give the AI agent context about today's news volume
+    """
+    try:
+        today = datetime.now().strftime('%Y-%m-%d')
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get category breakdown for today
+        cursor.execute('''
+            SELECT category, COUNT(*) as count
+            FROM articles 
+            WHERE DATE(timestamp) = ?
+            GROUP BY category
+            ORDER BY count DESC
+        ''', (today,))
+        
+        categories = [dict(row) for row in cursor.fetchall()]
+        
+        # Get total count
+        cursor.execute('''
+            SELECT COUNT(*) as total FROM articles 
+            WHERE DATE(timestamp) = ?
+        ''', (today,))
+        
+        total = cursor.fetchone()['total']
+        
+        # Get top sources
+        cursor.execute('''
+            SELECT source, COUNT(*) as count
+            FROM articles 
+            WHERE DATE(timestamp) = ?
+            GROUP BY source
+            ORDER BY count DESC
+            LIMIT 5
+        ''', (today,))
+        
+        sources = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "date": today,
+            "total_articles": total,
+            "categories": categories,
+            "top_sources": sources
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting today stats: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    
 def get_share_counts(url):
     """Fetch social share counts using the SharedCount SDK"""
     try:
@@ -1574,6 +2021,119 @@ def basic_deduplication(articles):
             unique.append(article)
     return unique
 
+def save_feed_health_report(feed_statuses):
+    """
+    Save an Excel report listing every RSS feed URL checked during this run,
+    whether it's currently working, working with warnings, or failing, plus
+    the error message and how many entries were found.
+
+    feed_statuses: list of dicts with keys:
+        source, url, status, entry_count, error_message, checked_at
+    """
+    if not feed_statuses:
+        return None
+
+    today = datetime.now()
+    folder_path = os.path.join(os.getcwd(), str(today.year), today.strftime('%m'), today.strftime('%d'))
+    os.makedirs(folder_path, exist_ok=True)
+
+    filename = os.path.join(folder_path, f"feed_health_{today.strftime('%Y-%m-%d_%H%M%S')}.xlsx")
+
+    status_labels = {
+        "ok": "يعمل بشكل طبيعي",
+        "ok_with_warnings": "يعمل مع تحذيرات (XML غير سليم لكن تم استرجاع المقالات)",
+        "ok_with_fallback": "يعمل عبر معالجة احتياطية (feedparser فشل، تم الاسترجاع عبر lxml)",
+        "error": "متوقف / خطأ",
+    }
+
+    rows = []
+    for item in feed_statuses:
+        rows.append({
+            "source": item.get("source", ""),
+            "url": item.get("url", ""),
+            "status": status_labels.get(item.get("status"), item.get("status", "")),
+            "status_code": item.get("status", ""),
+            "entry_count": item.get("entry_count", 0),
+            "error_message": item.get("error_message", ""),
+            "checked_at": item.get("checked_at", ""),
+        })
+
+    df = pd.DataFrame(rows)
+    # Put the broken feeds first so they're easy to spot
+    order = {"error": 0, "ok_with_fallback": 1, "ok_with_warnings": 2, "ok": 3}
+    df["_sort"] = df["status_code"].map(order).fillna(3)
+    df = df.sort_values("_sort").drop(columns="_sort")
+
+    try:
+        from openpyxl.styles import PatternFill
+
+        red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+        green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+
+        def _color_sheet(worksheet, sheet_df):
+            for row_idx, status_code in enumerate(sheet_df["status_code"], start=2):  # row 1 is header
+                fill = red_fill if status_code == "error" else green_fill
+                for col_idx in range(1, len(sheet_df.columns) + 1):
+                    worksheet.cell(row=row_idx, column=col_idx).fill = fill
+
+        with pd.ExcelWriter(filename, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="feed_health")
+            working_df = df[df["status_code"] != "error"]
+            broken_df = df[df["status_code"] == "error"]
+            working_df.to_excel(writer, index=False, sheet_name="working_feeds")
+            broken_df.to_excel(writer, index=False, sheet_name="broken_feeds")
+
+            _color_sheet(writer.sheets["feed_health"], df)
+            _color_sheet(writer.sheets["working_feeds"], working_df)
+            _color_sheet(writer.sheets["broken_feeds"], broken_df)
+
+        logger.info(f"Feed health report saved to {filename} "
+                    f"({len(broken_df)} broken / {len(df)} total)")
+        return filename
+    except Exception as e:
+        logger.error(f"Failed to save feed health report: {str(e)}")
+        return None
+
+
+@app.route("/check-feeds", methods=["GET"])
+def check_feeds():
+    """
+    Standalone RSS health check: goes through every feed URL in json/links.json,
+    tries to parse it, and saves an Excel report of which ones are working,
+    which are working with warnings (recovered from malformed XML), and which
+    are broken - without doing any article scraping/classification.
+    """
+    try:
+        links = load_json_file("json/links.json")
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Could not load json/links.json: {str(e)}"}), 500
+
+    feed_statuses = []
+    for src, urls in links.items():
+        for url in urls:
+            _, status = safe_parse_feed(url, return_status=True)
+            feed_statuses.append({
+                "source": src,
+                "url": url,
+                "status": status["status"],
+                "entry_count": status["entry_count"],
+                "error_message": status["error_message"],
+                "checked_at": datetime.now(timezone.utc).isoformat(),
+            })
+
+    feed_health_path = save_feed_health_report(feed_statuses)
+
+    return jsonify({
+        "status": "success",
+        "feed_health_report": feed_health_path,
+        "feeds_total": len(feed_statuses),
+        "feeds_ok": sum(1 for f in feed_statuses if f["status"] == "ok"),
+        "feeds_ok_with_warnings": sum(1 for f in feed_statuses if f["status"] == "ok_with_warnings"),
+        "feeds_broken": sum(1 for f in feed_statuses if f["status"] == "error"),
+        "broken_feeds": [f for f in feed_statuses if f["status"] == "error"]
+    })
+
+
 @app.route("/fetch-rss", methods=["GET"])
 def fetch_rss():
     # Load configuration files
@@ -1585,13 +2145,22 @@ def fetch_rss():
     all_articles = []
     all_articles_notunique = []
     processed_count = 0
+    feed_statuses = []
 
     try:
         # Process feeds with memory monitoring
         for src, urls in links.items():
             for url in urls:
                 print(f"Processing: {url}")
-                feed = safe_parse_feed(url)
+                feed, status = safe_parse_feed(url, return_status=True)
+                feed_statuses.append({
+                    "source": src,
+                    "url": url,
+                    "status": status["status"],
+                    "entry_count": status["entry_count"],
+                    "error_message": status["error_message"],
+                    "checked_at": datetime.now(timezone.utc).isoformat(),
+                })
                 if not feed:
                     continue
                 
@@ -1675,26 +2244,36 @@ def fetch_rss():
             # Save to DB & Excel
             save_articles_to_db(balanced_articles)
             save_to_excel_and_word_fixed(balanced_articles)
+            feed_health_path = save_feed_health_report(feed_statuses)
 
             return jsonify({
                 "status": "success",
                 "article_count": len(balanced_articles),
                 "processed_count": processed_count,
-                "articles": balanced_articles
+                "articles": balanced_articles,
+                "feed_health_report": feed_health_path,
+                "feeds_broken": sum(1 for f in feed_statuses if f["status"] == "error"),
+                "feeds_total": len(feed_statuses)
             })
-            
+
+        feed_health_path = save_feed_health_report(feed_statuses)
         return jsonify({
             "status": "success",
             "message": "No matching articles found today",
-            "processed_count": processed_count
+            "processed_count": processed_count,
+            "feed_health_report": feed_health_path,
+            "feeds_broken": sum(1 for f in feed_statuses if f["status"] == "error"),
+            "feeds_total": len(feed_statuses)
         })
         
     except Exception as e:
         logger.error(f"Error in fetch_rss: {str(e)}", exc_info=True)
+        feed_health_path = save_feed_health_report(feed_statuses)
         return jsonify({
             "status": "error",
             "message": str(e),
-            "processed_count": processed_count
+            "processed_count": processed_count,
+            "feed_health_report": feed_health_path
         }), 500
 
 
