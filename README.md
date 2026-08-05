@@ -5,7 +5,7 @@ The system automatically collects news from RSS feeds, processes Arabic content,
 it can fo up to 100 websites in 10min
 
 ---
-##SCREENSHOT 
+### Screenshot
 ![Dylon](https://github.com/Ayyoubsghuri/Delon-News-Feed-Classifier/blob/main/screenshots/screenshot1.png)
 ## 🚀 Key Features
 
