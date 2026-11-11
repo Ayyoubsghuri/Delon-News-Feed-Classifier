@@ -93,7 +93,7 @@ Command-line options:
 
 | Option | Effect |
 |---|---|
-| `--lan` | Also listen on your Wi-Fi so the Android app can use this PC as its server (address shown in the window title) |
+| `--lan` | Also listen on your Wi-Fi so other devices can open Delon in a browser (address shown in the window title) |
 | `--port 5000` | Preferred port (the next free one is used if busy) |
 | `--browser` | Open in your web browser instead of an app window |
 | `--headless` | Run only the server |
@@ -101,13 +101,31 @@ Command-line options:
 > The window uses Microsoft Edge WebView2 (built into Windows 10/11). If it is missing,
 > Delon opens in your browser instead.
 
-## 📱 Android app
+## 📱 Android app — standalone
 
-The phone shows the news, but the news engine (Python) runs on a server. On first launch,
-enter your server address in **Settings**, then tap **Test connection**:
+`Delon.apk` works **on its own: no PC or server needed**. Everything the Python backend does
+runs inside the phone:
 
-- a PC on the same Wi-Fi running `Delon.exe --lan` → e.g. `http://192.168.1.20:5000`
-- or your online server (e.g. Render) → `https://your-app.onrender.com`
+- **Fetches all RSS feeds** directly (native HTTP, no CORS limits), filters them with the same
+  places + keywords, classifies them with the same weighted rules, removes near-duplicates
+  and balances categories — a JavaScript port of `main.py`.
+- **Stores the news on the phone** (IndexedDB), keeps it 7 / 30 / 90 days (bookmarks forever),
+  updates automatically when opened (if older than 30 min) and with pull-to-refresh.
+- **Builds the Rehamna front-page PDF on the phone** (photos, columns, Arabic typography) and
+  opens the share sheet to save it, send it on WhatsApp, print, etc.
+- **AI summaries / editorial**: optional — paste an OpenRouter key in Settings.
+- Manage sources (add a site, remove a site) and edit the Rehamna words in Settings.
+
+Its own mobile design: bottom tab bar (Home · Rehamna · Saved · Stats · Settings), photo cards,
+a featured story, category chips, full-screen articles with a parallax photo, bottom sheets and
+swipe-friendly animations. Preview it in a browser with `http://localhost:3000/?mobile=1`.
+
+<p align="center">
+  <img src="screenshots/mobile-home.png" width="24%" alt="Home" />
+  <img src="screenshots/mobile-article.png" width="24%" alt="Article" />
+  <img src="screenshots/mobile-rehamna.png" width="24%" alt="Rehamna" />
+  <img src="screenshots/mobile-settings.png" width="24%" alt="Settings" />
+</p>
 
 The APK is debug-signed: it installs directly (allow "install unknown apps"); a release
 key is only needed to publish on the Play Store.

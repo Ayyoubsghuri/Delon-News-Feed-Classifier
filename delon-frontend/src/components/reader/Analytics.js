@@ -107,7 +107,7 @@ const shortDate = (d) => {
   return dt.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 };
 
-export default function Analytics() {
+export default function Analytics({ loader, compact = false }) {
   const dark = useDark();
   const pal = dark ? PALETTE.dark : PALETTE.light;
   const [days, setDays] = useState(30);
@@ -120,7 +120,7 @@ export default function Analytics() {
     setLoading(true);
     setError(null);
     try {
-      setData(await fetchJSON(`/analytics/overview?days=${d}`));
+      setData(loader ? await loader(d) : await fetchJSON(`/analytics/overview?days=${d}`));
     } catch (e) {
       setError("Could not load analytics from the server.");
     } finally {
@@ -146,13 +146,13 @@ export default function Analytics() {
   const axis = { stroke: pal.axis, fontSize: 11, tickLine: false, axisLine: false };
 
   return (
-    <div className="min-h-full bg-[#f5f5f7] dark:bg-[#1c1c1e] p-4 sm:p-6">
+    <div className={`min-h-full p-4 sm:p-6 ${compact ? "" : "bg-[#f5f5f7] dark:bg-[#1c1c1e]"}`}>
       {/* Filters */}
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <div>
           <div className="text-[18px] font-semibold text-zinc-900 dark:text-white">Overview</div>
           <div className="text-[12px] text-zinc-500">
-            {data ? `${data.kpis.feeds} feeds monitored · uptime ${data.kpis.uptime}` : "Loading…"}
+            {data ? `${data.kpis.feeds} feeds monitored${compact ? "" : ` · uptime ${data.kpis.uptime}`}` : "Loading…"}
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
