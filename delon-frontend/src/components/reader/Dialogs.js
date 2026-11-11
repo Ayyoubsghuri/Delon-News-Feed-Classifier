@@ -1,19 +1,30 @@
 import React, { useState } from "react";
+import { motion } from "framer-motion";
 import { X, Loader2, FileDown, Eye } from "lucide-react";
 import { apiUrl, getApiBase, setApiBase, isNative, openExternal } from "../../lib/api";
 
 export function Modal({ title, onClose, children, wide }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-[2px] p-0 sm:p-6"
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-[2px] p-0 sm:p-6"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`w-full ${wide ? "sm:max-w-5xl h-[92vh]" : "sm:max-w-md"} max-h-[92vh] overflow-hidden rounded-t-2xl sm:rounded-xl bg-white dark:bg-[#2a2a2d] shadow-2xl flex flex-col`}>
+      <motion.div
+        initial={{ opacity: 0, y: 40, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 30, scale: 0.97 }}
+        transition={{ type: "spring", stiffness: 380, damping: 32 }}
+        className={`w-full ${wide ? "sm:max-w-5xl h-[92vh]" : "sm:max-w-md"} max-h-[92vh] overflow-hidden rounded-t-2xl sm:rounded-xl bg-white dark:bg-[#2a2a2d] shadow-2xl flex flex-col`}>
         <div className="flex items-center border-b border-black/10 dark:border-white/10 px-4 py-3">
           <h2 className="flex-1 text-[15px] font-semibold text-zinc-900 dark:text-white">{title}</h2>
           <button className="tb-btn" onClick={onClose}><X size={17} /></button>
         </div>
         <div className="flex-1 overflow-y-auto">{children}</div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -52,10 +63,10 @@ export function AddFeedDialog({ onClose, notify }) {
         <p className="text-[13px] text-zinc-500">Delon looks for an RSS feed (/feed, /rss, …) and adds it to your sources.</p>
         <input className={field} type="url" required placeholder="https://example.ma" value={url} onChange={(e) => setUrl(e.target.value)} />
         {result && (
-          <div className={`rounded-md px-3 py-2 text-sm ${result.ok ? "bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200" : "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200"}`}>
+          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className={`rounded-md px-3 py-2 text-sm ${result.ok ? "bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200" : "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200"}`}>
             {result.text}
             {result.feed && <div className="mt-1 break-all text-xs opacity-80">{result.feed}</div>}
-          </div>
+          </motion.div>
         )}
         <div className="flex justify-end gap-2">
           <button type="button" className={secondary} onClick={onClose}>Close</button>
@@ -95,8 +106,9 @@ export function NewspaperDialog({ onClose, count }) {
           <div className="grid grid-cols-4 gap-1 rounded-lg bg-black/[0.05] dark:bg-white/10 p-1">
             {ranges.map(([d, label]) => (
               <button key={d} onClick={() => setDays(d)}
-                className={`rounded-md py-1.5 text-[13px] ${days === d ? "bg-white dark:bg-zinc-700 shadow text-zinc-900 dark:text-white font-medium" : "text-zinc-600 dark:text-zinc-300"}`}>
-                {label}
+                className={`relative rounded-md py-1.5 text-[13px] ${days === d ? "text-zinc-900 dark:text-white font-medium" : "text-zinc-600 dark:text-zinc-300"}`}>
+                {days === d && <motion.span layoutId="days-pill" className="absolute inset-0 rounded-md bg-white dark:bg-zinc-700 shadow" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
+                <span className="relative">{label}</span>
               </button>
             ))}
           </div>
@@ -167,8 +179,9 @@ export function SettingsDialog({ onClose, theme, setTheme, onSaved, firstRun }) 
           <div className="grid grid-cols-3 gap-1 rounded-lg bg-black/[0.05] dark:bg-white/10 p-1">
             {["system", "light", "dark"].map((t) => (
               <button key={t} onClick={() => setTheme(t)}
-                className={`rounded-md py-1.5 text-[13px] capitalize ${theme === t ? "bg-white dark:bg-zinc-700 shadow text-zinc-900 dark:text-white font-medium" : "text-zinc-600 dark:text-zinc-300"}`}>
-                {t}
+                className={`relative rounded-md py-1.5 text-[13px] capitalize ${theme === t ? "text-zinc-900 dark:text-white font-medium" : "text-zinc-600 dark:text-zinc-300"}`}>
+                {theme === t && <motion.span layoutId="theme-pill" className="absolute inset-0 rounded-md bg-white dark:bg-zinc-700 shadow" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
+                <span className="relative">{t}</span>
               </button>
             ))}
           </div>

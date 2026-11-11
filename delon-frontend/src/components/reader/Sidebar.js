@@ -1,7 +1,8 @@
 import React, { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Plus, Zap, Circle, CalendarDays, Bookmark, Folder, ChevronRight,
-  ChevronDown, Newspaper, BarChart3, Settings, RefreshCw,
+  Newspaper, BarChart3, Settings, RefreshCw,
 } from "lucide-react";
 import { faviconFor } from "../../lib/format";
 
@@ -14,22 +15,44 @@ function Row({ active, icon, label, count, onClick, indent = 0, chevron, onChevr
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => (e.key === "Enter" ? onClick() : null)}
-      className={`group flex items-center gap-2 rounded-md px-2 py-[5px] text-[13px] cursor-default select-none
-        ${active ? "bg-black/[0.09] dark:bg-white/[0.12]" : "hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"}`}
+      className={`group relative flex items-center gap-2 rounded-md px-2 py-[5px] text-[13px] cursor-default select-none transition-colors
+        ${active ? "" : "hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"}`}
       style={{ paddingLeft: 8 + indent * 16 }}
     >
-      <span className="flex h-4 w-4 shrink-0 items-center justify-center">{icon}</span>
-      <span className="flex-1 truncate text-left text-zinc-800 dark:text-zinc-100" dir={dir}>{label}</span>
-      {count > 0 && <span className="text-[11px] tabular-nums text-zinc-500">{count}</span>}
+      {active && (
+        <motion.span
+          layoutId="sidebar-active"
+          className="absolute inset-0 rounded-md bg-black/[0.09] dark:bg-white/[0.12]"
+          transition={{ type: "spring", stiffness: 520, damping: 40 }}
+        />
+      )}
+      <motion.span whileTap={{ scale: 0.85 }} className="relative flex h-4 w-4 shrink-0 items-center justify-center">{icon}</motion.span>
+      <span className="relative flex-1 truncate text-left text-zinc-800 dark:text-zinc-100" dir={dir}>{label}</span>
+      <AnimatePresence initial={false} mode="popLayout">
+        {count > 0 && (
+          <motion.span
+            key={count}
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            transition={{ duration: 0.18 }}
+            className="relative text-[11px] tabular-nums text-zinc-500"
+          >
+            {count}
+          </motion.span>
+        )}
+      </AnimatePresence>
       {chevron !== undefined && (
         <span
           onClick={(e) => {
             e.stopPropagation();
             onChevron && onChevron();
           }}
-          className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+          className="relative text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
         >
-          {chevron ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          <motion.span className="block" animate={{ rotate: chevron ? 90 : 0 }} transition={{ duration: 0.2 }}>
+            <ChevronRight size={14} />
+          </motion.span>
         </span>
       )}
     </div>
@@ -68,7 +91,7 @@ export default function Sidebar({
         <button title="Add feed" onClick={onAddFeed} className="tb-btn"><Plus size={17} /></button>
         <button title="Analytics" onClick={onCharts} className="tb-btn"><BarChart3 size={17} /></button>
         <button title="Refresh all feeds" onClick={onSync} className="tb-btn" disabled={syncing}>
-          {syncing ? <RefreshCw size={16} className="animate-spin" /> : <Zap size={17} />}
+          {syncing ? <RefreshCw size={16} className="animate-spin" /> : <motion.span whileHover={{ scale: 1.15, rotate: -8 }} className="flex"><Zap size={17} /></motion.span>}
         </button>
         <button title="Settings" onClick={onSettings} className="tb-btn"><Settings size={16} /></button>
       </div>
@@ -103,8 +126,16 @@ export default function Sidebar({
                 chevron={!!open[cat]}
                 onChevron={() => toggle(cat)}
               />
-              {open[cat] &&
-                Object.entries(sources)
+              <AnimatePresence initial={false}>
+                {open[cat] && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    className="overflow-hidden"
+                  >
+                {Object.entries(sources)
                   .sort((a, b) => b[1].count - a[1].count)
                   .map(([src, info]) => (
                     <Row
@@ -117,6 +148,9 @@ export default function Sidebar({
                       count={info.count}
                     />
                   ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           );
         })}

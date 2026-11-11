@@ -2824,6 +2824,82 @@ def get_daily_stats():
             "message": "Failed to generate analytics"
         }), 500
 
+
+@app.route("/analytics/overview", methods=["GET"])
+def analytics_overview():
+    """Everything the analytics dashboard needs, for the last `days` days."""
+    from collections import Counter
+
+    days = max(1, min(int(request.args.get("days", 30) or 30), 365))
+    today = datetime.now().date()
+    since = today - timedelta(days=days - 1)
+
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            "SELECT title, description, content, pubDate, source, category, matched_places, "
+            "DATE(timestamp) AS day FROM articles WHERE DATE(timestamp) >= ?",
+            (since.isoformat(),),
+        ).fetchall()
+        total_all = conn.execute("SELECT COUNT(*) FROM articles").fetchone()[0]
+    finally:
+        conn.close()
+
+    terms = newspaper_pdf.load_terms("json")
+    per_day = Counter()
+    reh_day = Counter()
+    cats = Counter()
+    srcs = Counter()
+    hours = Counter()
+    places = Counter()
+    for r in rows:
+        per_day[r["day"]] += 1
+        cats[r["category"] or "مختلفات"] += 1
+        srcs[r["source"] or "unknown"] += 1
+        blob = f"{r['title'] or ''} {r['description'] or ''} {r['content'] or ''}"
+        if newspaper_pdf.matches_terms(blob, terms):
+            reh_day[r["day"]] += 1
+        try:
+            hours[parser.parse(r["pubDate"]).hour] += 1
+        except Exception:
+            pass
+        for place in (r["matched_places"] or "").split(","):
+            place = place.strip()
+            if place:
+                places[place] += 1
+
+    timeline = []
+    for i in range(days):
+        d = (since + timedelta(days=i)).isoformat()
+        timeline.append({"date": d, "articles": per_day.get(d, 0), "rehamna": reh_day.get(d, 0)})
+
+    try:
+        feeds = sum(len(v) for v in load_json_file("json/links.json").values())
+    except Exception:
+        feeds = 0
+
+    uptime = timedelta(seconds=int(time.time() - APP_START_TIME))
+    t = today.isoformat()
+    y = (today - timedelta(days=1)).isoformat()
+    return jsonify({
+        "days": days,
+        "kpis": {
+            "total": total_all,
+            "period": len(rows),
+            "today": per_day.get(t, 0),
+            "yesterday": per_day.get(y, 0),
+            "rehamna": sum(reh_day.values()),
+            "sources": len(srcs),
+            "feeds": feeds,
+            "uptime": format_timedelta(uptime),
+        },
+        "timeline": timeline,
+        "categories": [{"name": k, "value": v} for k, v in cats.most_common()],
+        "sources": [{"name": k, "value": v} for k, v in srcs.most_common(10)],
+        "hours": [{"hour": h, "value": hours.get(h, 0)} for h in range(24)],
+        "places": [{"name": k, "value": v} for k, v in places.most_common(14)],
+    })
+
 @app.route("/analytics/quick-stats", methods=["GET"])
 def get_quick_stats():
     conn = get_db_connection()

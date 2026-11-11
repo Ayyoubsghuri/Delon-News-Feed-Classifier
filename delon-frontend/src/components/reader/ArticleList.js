@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "framer-motion";
 import { Search, PanelLeft, CheckCheck, ChevronLeft, FileDown } from "lucide-react";
 import { timeAgo, stripHtml } from "../../lib/format";
 
@@ -56,33 +57,50 @@ export default function ArticleList({
         {!loading && articles.length === 0 && (
           <div className="p-8 text-center text-sm text-zinc-400">Nothing here.</div>
         )}
-        <ul>
-          {articles.map((a) => {
+        <ul key={title}>
+          {articles.map((a, i) => {
             const active = a.id === selectedId;
             const unread = !readIds.has(a.id);
             return (
-              <li key={a.id}>
-                <button
+              <motion.li
+                key={a.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: Math.min(i, 14) * 0.025, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <motion.button
+                  whileTap={{ scale: 0.985 }}
                   onClick={() => onSelect(a)}
-                  className={`block w-full border-b border-black/[0.05] dark:border-white/[0.06] px-4 py-3 text-left transition-colors
-                    ${active ? "bg-black/[0.07] dark:bg-white/[0.1]" : "hover:bg-black/[0.025] dark:hover:bg-white/[0.04]"}`}
+                  className={`relative block w-full border-b border-black/[0.05] dark:border-white/[0.06] px-4 py-3 text-left transition-colors
+                    ${active ? "" : "hover:bg-black/[0.025] dark:hover:bg-white/[0.04]"}`}
                 >
+                  {active && (
+                    <motion.span
+                      layoutId="list-active"
+                      className="absolute inset-0 bg-black/[0.07] dark:bg-white/[0.1]"
+                      transition={{ type: "spring", stiffness: 520, damping: 42 }}
+                    />
+                  )}
                   <h3
                     dir="auto"
-                    className={`text-[14px] leading-snug line-clamp-3 ${unread ? "font-bold text-zinc-900 dark:text-white" : "font-medium text-zinc-500 dark:text-zinc-400"}`}
+                    className={`relative text-[14px] transition-colors duration-300 leading-snug line-clamp-3 ${unread ? "font-bold text-zinc-900 dark:text-white" : "font-medium text-zinc-500 dark:text-zinc-400"}`}
                   >
                     {stripHtml(a.title)}
                   </h3>
-                  <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-500">
-                    <span className={`h-[7px] w-[7px] shrink-0 rounded-full border ${unread ? "border-blue-500 bg-blue-500" : "border-zinc-300 dark:border-zinc-600"}`} />
+                  <div className="relative mt-2 flex items-center gap-2 text-[11px] text-zinc-500">
+                    <motion.span
+                      animate={{ scale: unread ? 1 : 0.75 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                      className={`h-[7px] w-[7px] shrink-0 rounded-full border transition-colors duration-300 ${unread ? "border-blue-500 bg-blue-500" : "border-zinc-300 dark:border-zinc-600"}`}
+                    />
                     <span className="truncate">{a.source || a.author}</span>
                     {a.category && (
                       <span className="hidden sm:inline truncate rounded bg-black/[0.05] dark:bg-white/10 px-1.5 py-[1px] text-[10px]" dir="rtl">{a.category}</span>
                     )}
                     <span className="ml-auto shrink-0 tabular-nums">{timeAgo(a.pubDate || a.time || a.timestamp)}</span>
                   </div>
-                </button>
-              </li>
+                </motion.button>
+              </motion.li>
             );
           })}
         </ul>

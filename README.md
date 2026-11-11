@@ -39,7 +39,9 @@ branches). Push a tag such as `v3.0.0` to publish them in a GitHub release.
 - **Reader**: large title, source, author • time, photo and comfortable Arabic typography.
 - Toolbar: AI summary ✨, bookmark, share counts, delete, mark unread, open the original.
 - Search, mark-all-as-read, light / dark / system theme.
-- On phones the panes stack (sidebar → list → article) with back buttons.
+- On phones the panes stack (sidebar → list → article) with back buttons and slide transitions.
+- Smooth animations: sliding selection highlights, staggered lists, article fade-ins, animated
+  dialogs and folders (automatically reduced when the OS "reduce motion" setting is on).
 - Read state and bookmarks are stored on the device.
 
 ### 🗞️ Rehamna front-page PDF
@@ -73,7 +75,11 @@ In the app: **sidebar → Front page PDF…** (or the **PDF** button in the Reha
 6. **Feed management** — add a website and Delon finds its RSS feed (`json/links.json`).
 7. **Social share analytics** (SharedCount, optional).
 8. **Daily Excel & Word reports** and feed-health reports.
-9. **Analytics dashboard** (charts of sources, timeline, places, categories).
+9. **Analytics dashboard** — animated KPIs, articles per day (with Rehamna overlay), categories
+   donut, top sources, publishing hours and most-mentioned places for 7 / 30 / 90 days
+   (`GET /analytics/overview?days=30`).
+
+   ![Analytics](screenshots/analytics-dark.png)
 
 ---
 
