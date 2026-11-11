@@ -1,243 +1,133 @@
-import React, { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
-import { ArrowLeft, Bookmark, Share, Sparkles, MoreHorizontal, Loader2, Link2, ExternalLink, EyeOff, Sun } from "lucide-react";
-import { firstImage, toParagraphs, stripHtml } from "../lib/format";
-import { Sheet, SheetAction } from "./ui";
+import React, { useRef, useState } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { ChevronLeft, Bookmark, Share2, ExternalLink, Trash2, Sparkles, Loader2 } from "lucide-react";
+import { timeAgo, firstImage, toParagraphs, stripHtml } from "../lib/format";
+import { CategoryTag, Favicon } from "./ui";
 import { openExternal } from "../lib/api";
 import { summarize } from "./engine/ai";
 
-export async function shareArticle(a) {
+async function shareArticle(a) {
   try {
-    const { Share: S } = await import("@capacitor/share");
-    await S.share({ title: stripHtml(a.title), text: stripHtml(a.title), url: a.link });
+    const { Share } = await import("@capacitor/share");
+    await Share.share({ title: stripHtml(a.title), text: stripHtml(a.title), url: a.link });
   } catch (_) {
     if (navigator.share) navigator.share({ title: a.title, url: a.link }).catch(() => {});
   }
 }
 
-export async function copyLink(a, notify) {
-  try {
-    await navigator.clipboard.writeText(a.link);
-    notify("Link copied");
-  } catch (_) {
-    notify(a.link);
-  }
-}
-
-const THEMES = {
-  light: { bg: "#ffffff", fg: "#18181b", sub: "#71717a", dot: "#ffffff" },
-  sepia: { bg: "#f6efe2", fg: "#3b2f20", sub: "#8a7a63", dot: "#e8dcc4" },
-  gray: { bg: "#e9e9eb", fg: "#1f1f22", sub: "#6b6b70", dot: "#c9c9cd" },
-  dark: { bg: "#141416", fg: "#ececee", sub: "#8e8e93", dot: "#2a2a2d" },
-};
-
-function useReader() {
-  const load = () => {
-    try {
-      return { size: 18, font: "serif", theme: "light", ...JSON.parse(localStorage.getItem("delon.reader") || "{}") };
-    } catch (_) {
-      return { size: 18, font: "serif", theme: "light" };
-    }
-  };
-  const [r, setR] = useState(load);
-  useEffect(() => {
-    try {
-      localStorage.setItem("delon.reader", JSON.stringify(r));
-    } catch (_) {}
-  }, [r]);
-  return [r, setR];
-}
-
-const fmtDate = (v) => {
-  const d = new Date(v);
-  return isNaN(d) ? "" : d.toLocaleDateString("ar-MA", { day: "numeric", month: "long", year: "numeric" });
-};
+const Glass = ({ children, onClick, active }) => (
+  <motion.button whileTap={{ scale: 0.85 }} onClick={onClick}
+    className={`flex h-10 w-10 items-center justify-center rounded-full backdrop-blur-md ${active ? "bg-[#b4161b] text-white" : "bg-black/35 text-white"}`}>
+    {children}
+  </motion.button>
+);
 
 export default function ArticleScreen({ article, onBack, onToggleBookmark, onDelete, notify }) {
   const scrollRef = useRef(null);
   const { scrollY } = useScroll({ container: scrollRef });
-  const heroScale = useTransform(scrollY, [-200, 0], [1.3, 1]);
-  const heroY = useTransform(scrollY, [0, 300], [0, 80]);
-  const [reader, setReader] = useReader();
-  const [sheet, setSheet] = useState(null);
+  const heroY = useTransform(scrollY, [0, 300], [0, 90]);
+  const heroScale = useTransform(scrollY, [-150, 0], [1.25, 1]);
+  const barOpacity = useTransform(scrollY, [180, 260], [0, 1]);
   const [summary, setSummary] = useState(article.summary || null);
   const [busy, setBusy] = useState(false);
   const [imgOk, setImgOk] = useState(true);
-  const [savedToast, setSavedToast] = useState(false);
-  const t = THEMES[reader.theme];
   const image = firstImage(article);
   const hasHero = image && imgOk;
   const paragraphs = toParagraphs(article.content || article.description);
-  const tags = (article.matched_places || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 6);
 
   const runSummary = async () => {
     setBusy(true);
     try {
       setSummary(await summarize(article));
     } catch (e) {
-      notify(e.message === "no-key" ? "Add an OpenRouter key in Menu → AI" : "AI summary failed");
+      notify(e.message === "no-key" ? "Add an OpenRouter key in Settings to use AI" : "AI summary failed");
     } finally {
       setBusy(false);
     }
   };
 
-  const bookmark = () => {
-    onToggleBookmark();
-    if (!article.bookmarked) {
-      setSavedToast(true);
-      setTimeout(() => setSavedToast(false), 2200);
-    }
-  };
-
   return (
     <motion.div
-      className="fixed inset-0 z-40"
-      style={{ background: t.bg }}
+      className="fixed inset-0 z-40 bg-white dark:bg-[#121214]"
       initial={{ x: "100%" }}
       animate={{ x: 0 }}
       exit={{ x: "100%" }}
-      transition={{ type: "spring", stiffness: 380, damping: 40 }}
+      transition={{ type: "spring", stiffness: 360, damping: 38 }}
     >
-      <div className="absolute left-3 top-[calc(env(safe-area-inset-top)+8px)] z-20">
-        <motion.button whileTap={{ scale: 0.85 }} onClick={onBack}
-          className={`flex h-10 w-10 items-center justify-center rounded-full ${hasHero ? "bg-black/30 text-white backdrop-blur" : ""}`}
-          style={hasHero ? {} : { color: t.fg }}>
-          <ArrowLeft size={21} />
-        </motion.button>
+      {/* top bar (fades in when scrolled) */}
+      <motion.div style={{ opacity: hasHero ? barOpacity : 1 }}
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[calc(env(safe-area-inset-top)+60px)] bg-white/90 dark:bg-[#121214]/90 backdrop-blur border-b border-black/5 dark:border-white/10" />
+      <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-2 px-4 pt-[calc(env(safe-area-inset-top)+10px)]">
+        <Glass onClick={onBack}><ChevronLeft size={22} /></Glass>
+        <div className="flex-1" />
+        <Glass onClick={onToggleBookmark} active={article.bookmarked}>
+          <motion.span key={String(article.bookmarked)} animate={{ scale: [0.6, 1.2, 1] }} className="flex">
+            <Bookmark size={18} className={article.bookmarked ? "fill-white" : ""} />
+          </motion.span>
+        </Glass>
+        <Glass onClick={() => shareArticle(article)}><Share2 size={18} /></Glass>
       </div>
 
-      <div ref={scrollRef} className="h-full overflow-y-auto overscroll-contain pb-28">
+      <div ref={scrollRef} className="h-full overflow-y-auto overscroll-contain">
         {hasHero ? (
-          <div className="relative h-[42vh] min-h-[260px] overflow-hidden bg-zinc-200">
-            <motion.img src={image} alt="" onError={() => setImgOk(false)} style={{ scale: heroScale, y: heroY }}
+          <div className="relative h-[46vh] min-h-[280px] overflow-hidden bg-zinc-200 dark:bg-zinc-800">
+            <motion.img src={image} alt="" onError={() => setImgOk(false)} style={{ y: heroY, scale: heroScale }}
               className="absolute inset-0 h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30" />
           </div>
         ) : (
-          <div className="h-[calc(env(safe-area-inset-top)+64px)]" />
+          <div className="h-[calc(env(safe-area-inset-top)+70px)]" />
         )}
 
         <motion.article
           dir="rtl"
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-          className={`relative rounded-t-[22px] px-5 pt-5 ${hasHero ? "-mt-6" : ""}`}
-          style={{ background: t.bg }}
+          transition={{ delay: 0.12, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          className={`relative rounded-t-[28px] bg-white dark:bg-[#121214] px-5 pb-32 pt-6 ${hasHero ? "-mt-8" : ""}`}
         >
-          <div className="flex items-center gap-2 text-[12.5px]" style={{ color: t.sub }}>
-            <span className="ar">{fmtDate(article.pubDate)}</span>
+          <CategoryTag category={article.category} />
+          <h1 className="mt-3 text-[25px] font-extrabold leading-[1.45] text-zinc-900 dark:text-white">{stripHtml(article.title)}</h1>
+          <div className="mt-3 flex items-center gap-2 text-[13px] text-zinc-500" dir="ltr">
+            <Favicon source={article.source} link={article.link} size={18} />
+            <span className="font-semibold text-zinc-700 dark:text-zinc-300">{article.source}</span>
             <span>·</span>
-            <span dir="ltr">{article.source}</span>
+            <span>{timeAgo(article.pubDate)}</span>
           </div>
-          <h1 className="ar selectable mt-2 text-[25px] font-extrabold leading-[1.5]" style={{ color: t.fg }}>{stripHtml(article.title)}</h1>
-          {article.category && (
-            <div className="ar mt-2 inline-block rounded-md bg-[#f26b1d]/10 px-2 py-0.5 text-[12px] font-bold text-[#f26b1d]">{article.category}</div>
+
+          <motion.button whileTap={{ scale: 0.97 }} onClick={runSummary} disabled={busy}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-violet-600 to-fuchsia-600 py-3 text-[14px] font-bold text-white shadow-lg shadow-violet-600/20">
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+            {summary ? "تحديث الملخص بالذكاء الاصطناعي" : "تلخيص بالذكاء الاصطناعي"}
+          </motion.button>
+
+          {summary && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+              className="mt-4 overflow-hidden rounded-2xl bg-violet-50 dark:bg-violet-950/40 p-4 text-[15px] leading-8 text-zinc-800 dark:text-zinc-100">
+              {summary}
+            </motion.div>
           )}
 
-          <AnimatePresence>
-            {summary && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="overflow-hidden">
-                <div className="ar selectable mt-5 rounded-2xl border border-[#f26b1d]/25 bg-[#f26b1d]/[0.06] p-4 text-[15px] leading-8" style={{ color: t.fg }}>
-                  <div className="mb-1 flex items-center gap-1 text-[12px] font-bold text-[#f26b1d]"><Sparkles size={13} /> ملخص بالذكاء الاصطناعي</div>
-                  {summary}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <div className={`selectable mt-5 space-y-5 ${reader.font === "serif" ? "serif" : "sans"}`}
-            style={{ color: t.fg, fontSize: reader.size, lineHeight: reader.font === "serif" ? 2 : 1.95 }}>
+          <div className="mt-6 space-y-5 text-[17.5px] leading-[2] text-zinc-800 dark:text-zinc-200" style={{ fontFamily: "'Wafeq', 'Noto Naskh Arabic', serif" }}>
             {paragraphs.map((p, i) => (
-              <motion.p key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 + Math.min(i, 6) * 0.05 }}>
+              <motion.p key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + Math.min(i, 6) * 0.05 }}>
                 {p}
               </motion.p>
             ))}
           </div>
 
-          {tags.length > 0 && (
-            <div className="mt-7 flex flex-wrap gap-2">
-              {tags.map((tg) => (
-                <span key={tg} className="ar rounded-full border px-3 py-1 text-[12.5px]" style={{ borderColor: `${t.sub}55`, color: t.fg }}>#{tg.replace(/\s+/g, "_")}</span>
-              ))}
-            </div>
-          )}
-
-          <button onClick={() => openExternal(article.link)} className="mt-7 flex items-center gap-1.5 text-[13.5px] font-semibold text-[#f26b1d]" dir="ltr">
-            <ExternalLink size={14} /> Read on {article.source}
-          </button>
+          <div className="mt-10 grid grid-cols-2 gap-3" dir="ltr">
+            <button onClick={() => openExternal(article.link)}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-zinc-100 dark:bg-zinc-800 py-3 text-[14px] font-semibold text-zinc-800 dark:text-zinc-100">
+              <ExternalLink size={16} /> Open site
+            </button>
+            <button onClick={onDelete}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-red-50 dark:bg-red-950/50 py-3 text-[14px] font-semibold text-red-600">
+              <Trash2 size={16} /> Delete
+            </button>
+          </div>
         </motion.article>
       </div>
-
-      {/* Saved toast */}
-      <AnimatePresence>
-        {savedToast && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
-            className="absolute inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+76px)] z-30 flex items-center gap-3 rounded-2xl bg-white dark:bg-[#2a2a2d] p-3.5 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.3)]">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f26b1d] text-white"><Bookmark size={17} className="fill-white" /></span>
-            <div>
-              <div className="text-[14.5px] font-bold text-zinc-900 dark:text-white">Saved</div>
-              <div className="text-[12px] text-zinc-500">You can find this story in Bookmarks.</div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* black action bar */}
-      <div className="absolute inset-x-0 bottom-0 z-30 bg-[#111] pb-[env(safe-area-inset-bottom)]">
-        <div className="grid h-[60px] grid-cols-5 items-center text-white">
-          {[
-            [busy ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />, runSummary, false],
-            [<span className="text-[15px] font-bold">A<span className="text-[12px]">A</span></span>, () => setSheet("reader"), false],
-            [<Bookmark size={20} className={article.bookmarked ? "fill-[#f26b1d]" : ""} />, bookmark, article.bookmarked],
-            [<Share size={20} />, () => shareArticle(article), false],
-            [<MoreHorizontal size={22} />, () => setSheet("more"), false],
-          ].map(([icon, fn, active], i) => (
-            <motion.button key={i} whileTap={{ scale: 0.8 }} onClick={fn}
-              className={`flex h-full items-center justify-center ${active ? "text-[#f26b1d]" : "text-white/90"}`}>
-              {icon}
-            </motion.button>
-          ))}
-        </div>
-      </div>
-
-      <AnimatePresence>
-        {sheet === "reader" && (
-          <Sheet onClose={() => setSheet(null)}>
-            <div className="mb-5 flex items-center justify-between gap-3">
-              {Object.entries(THEMES).map(([k, v]) => (
-                <button key={k} onClick={() => setReader({ ...reader, theme: k })}
-                  className="flex h-11 w-11 items-center justify-center rounded-full border-2"
-                  style={{ background: v.dot, borderColor: reader.theme === k ? "#f26b1d" : "rgba(0,0,0,0.12)" }}>
-                  {reader.theme === k && <span className="h-2 w-2 rounded-full bg-[#f26b1d]" />}
-                </button>
-              ))}
-              <Sun size={20} className="text-zinc-400" />
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-[13px] text-zinc-500">A</span>
-              <input type="range" min={14} max={26} value={reader.size}
-                onChange={(e) => setReader({ ...reader, size: +e.target.value })} className="flex-1 accent-[#f26b1d]" />
-              <span className="text-[20px] text-zinc-700 dark:text-zinc-200">A</span>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              {[["sans", "كوفي · Sans"], ["serif", "نسخ · Serif"]].map(([k, label]) => (
-                <button key={k} onClick={() => setReader({ ...reader, font: k })}
-                  className={`${k} rounded-xl border py-2.5 text-[14px] ${reader.font === k ? "border-[#f26b1d] text-[#f26b1d]" : "border-black/10 text-zinc-600 dark:border-white/15 dark:text-zinc-300"}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </Sheet>
-        )}
-        {sheet === "more" && (
-          <Sheet onClose={() => setSheet(null)}>
-            <SheetAction icon={<Share size={19} />} label="Share to …" onClick={() => { setSheet(null); shareArticle(article); }} />
-            <SheetAction icon={<Link2 size={19} />} label="Copy link" onClick={() => { setSheet(null); copyLink(article, notify); }} />
-            <SheetAction icon={<ExternalLink size={19} />} label="Open in browser" onClick={() => { setSheet(null); openExternal(article.link); }} />
-            <SheetAction icon={<EyeOff size={19} />} label="Not interesting (delete)" danger onClick={() => { setSheet(null); onDelete(); }} />
-          </Sheet>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }
