@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiUrl } from '../lib/api';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -92,11 +93,11 @@ function Info() {
         placesRes,
         statsRes
       ] = await Promise.all([
-        fetch('http://127.0.0.1:5000/analytics/pubdate-stats'),
-        fetch('http://127.0.0.1:5000/analytics/article-timeline'),
-        fetch('http://127.0.0.1:5000/analytics/source-distribution'),
-        fetch('http://127.0.0.1:5000/analytics/matched-places'),
-        fetch('http://127.0.0.1:5000/analytics/quick-stats')
+        fetch(apiUrl('/analytics/pubdate-stats')),
+        fetch(apiUrl('/analytics/article-timeline')),
+        fetch(apiUrl('/analytics/source-distribution')),
+        fetch(apiUrl('/analytics/matched-places')),
+        fetch(apiUrl('/analytics/quick-stats'))
       ]);
 
       const pubDateData = await pubDateRes.json();

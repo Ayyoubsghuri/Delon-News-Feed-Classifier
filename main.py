@@ -17,16 +17,27 @@ from docx.shared import Pt, Inches
 import re , time
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity  # Corrected import
 import logging
-from sharedcountsdk import SharedCountApi
+try:
+    from sharedcountsdk import SharedCountApi
+except Exception:  # optional dependency (not installable on every Python)
+    SharedCountApi = None
 import time,threading,psutil
 from flask import send_from_directory
 import openai
 from dotenv import load_dotenv
+from flask import Response
+import newspaper_pdf
+
+# Heavy ML stack is optional: the desktop (.exe) build ships without it.
+try:
+    import torch
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification
+except Exception:
+    torch = None
+    AutoTokenizer = AutoModelForSequenceClassification = None
 # from pygame import mixer  # Add this import at the top of your file
 load_dotenv("secret.env")
 
@@ -36,7 +47,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Database configuration
-DATABASE_NAME = "news_articles.db"
+DATABASE_NAME = os.environ.get("DELON_DB", "news_articles.db")
+# Folder that holds the compiled React app (overridden by the desktop launcher).
+BUILD_DIR = os.environ.get("DELON_BUILD_DIR", "build")
 
 APP_START_TIME = time.time()
 PROCESS = psutil.Process(os.getpid())
@@ -85,7 +98,7 @@ class EnhancedClassifier:
         self._init_bert(disabled=True)  # Disable unless fine-tuned
 
     def _init_bert(self, disabled=False):
-        if disabled:
+        if disabled or AutoTokenizer is None:
             logger.info("BERT classifier is disabled for performance.")
             return
         try:
@@ -168,17 +181,18 @@ class EnhancedClassifier:
 
         return "مختلفات"
 
-app = Flask(__name__)
-app = Flask(__name__, static_folder="build/static", static_url_path="/static")
+app = Flask(__name__, static_folder=os.path.abspath(os.path.join(BUILD_DIR, "static")),
+            static_url_path="/static")
 CORS(app)
 
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve_react(path):
-    if path != "" and os.path.exists(os.path.join("build", path)):
-        return send_from_directory("build", path)
+    build_dir = os.path.abspath(BUILD_DIR)
+    if path != "" and os.path.exists(os.path.join(build_dir, path)):
+        return send_from_directory(build_dir, path)
     else:
-        return send_from_directory("build", "index.html")
+        return send_from_directory(build_dir, "index.html")
 # Initialize Flask-ApiSpec and assign a unique name to avoid conflicts
 app.config["APISPEC_SWAGGER_UI_URL"] = "/swagger-ui"
 api_spec = FlaskApiSpec(app)
@@ -1513,11 +1527,12 @@ def save_articles_to_db(articles):
 SHARED_API_KEY = os.getenv("SHARED_API_KEY")
 SHARED_API_ENDPOINT = os.getenv("SHARED_API_ENDPOINT")
 
-sharedcount_api = SharedCountApi(apiToken=SHARED_API_KEY)
+sharedcount_api = (
+    SharedCountApi(apiToken=SHARED_API_KEY) if (SharedCountApi and SHARED_API_KEY) else None
+)
 
-
-if not SHARED_API_KEY:
-    raise RuntimeError("SHARED_API_KEY not set in secret.env")
+if not sharedcount_api:
+    logger.warning("SHARED_API_KEY not set (or sharedcountsdk missing): share counts disabled")
 
 
 # main.py - Updated AI Agent endpoint with TODAY-ONLY data
@@ -1741,6 +1756,8 @@ def get_share_counts(url):
     try:
         logger.info(f"Fetching share counts for URL: {url}")
         
+        if not sharedcount_api:
+            return None
         # Make sure the URL is properly formatted for the SDK
         response = sharedcount_api.get(url)
         
@@ -1940,7 +1957,6 @@ def balance_categories(unique_articles, non_unique_articles):
     
     return balanced_articles
 
-model = SentenceTransformer('CAMeL-Lab/bert-base-arabic-camelbert-msa-sixteenth')
 def normalize_arabic(text):
     """Optimized Arabic text normalizer for better performance"""
     # Basic normalization (faster than full normalization)
@@ -2861,6 +2877,151 @@ def get_quick_stats():
             "lastUpdated": datetime.now().isoformat()
         }
     })
+
+
+# ---------------------------------------------------------------------------
+# Reader API (used by the redesigned 3-pane UI)
+# ---------------------------------------------------------------------------
+
+def _row_to_article(row):
+    a = dict(row)
+    return {
+        "id": a.get("id"),
+        "link": a.get("link"),
+        "title": a.get("title"),
+        "description": a.get("description"),
+        "content": a.get("content"),
+        "author": a.get("source"),
+        "source": a.get("source"),
+        "pubDate": a.get("pubDate"),
+        "time": a.get("pubDate"),
+        "image_url": a.get("image_url"),
+        "matched_places": a.get("matched_places"),
+        "category": a.get("category"),
+        "timestamp": a.get("timestamp"),
+        "isUnread": True,
+    }
+
+
+@app.route("/articles", methods=["GET"])
+def list_articles():
+    """Articles already stored in the DB (fast, no RSS fetching).
+
+    Query params: days (default 1), category, source, q
+    """
+    days = max(1, min(int(request.args.get("days", 1) or 1), 365))
+    category = request.args.get("category")
+    source = request.args.get("source")
+    q = (request.args.get("q") or "").strip()
+    since = (datetime.now() - timedelta(days=days - 1)).strftime("%Y-%m-%d")
+
+    sql = "SELECT * FROM articles WHERE DATE(timestamp) >= ?"
+    params = [since]
+    if category:
+        sql += " AND category = ?"
+        params.append(category)
+    if source:
+        sql += " AND source = ?"
+        params.append(source)
+    for term in q.split():
+        sql += " AND (title LIKE ? OR description LIKE ? OR content LIKE ?)"
+        params += [f"%{term}%"] * 3
+    sql += " ORDER BY timestamp DESC LIMIT 1000"
+
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(sql, params).fetchall()
+    finally:
+        conn.close()
+    articles = [_row_to_article(r) for r in rows]
+    return jsonify({"articles": articles, "count": len(articles), "days": days})
+
+
+# ---------------------------------------------------------------------------
+# Rehamna newspaper (front-page style PDF with photos)
+# ---------------------------------------------------------------------------
+
+def _ai_rehamna_editorial(digest):
+    """Write one Arabic newspaper article from all Rehamna stories (optional)."""
+    api_key = SummarizationConfig.OPENROUTER_API_KEY
+    model = SummarizationConfig.OPENROUTER_MODEL
+    if not api_key or not model:
+        return None
+    client = openai.OpenAI(api_key=api_key.split(",")[0].strip(),
+                           base_url=SummarizationConfig.OPENROUTER_BASE_URL)
+    prompt = (
+        "أنت محرر صحفي في جريدة محلية بإقليم الرحامنة. اعتمادا فقط على الأخبار التالية، "
+        "اكتب مقالا افتتاحيا واحدا بالعربية الفصحى (بين 150 و250 كلمة) يلخص أبرز ما جرى "
+        "في الإقليم، بأسلوب صحفي محايد، دون عناوين أو تعداد نقطي ودون اختلاق معلومات:\n\n"
+        f"{digest}"
+    )
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.4,
+            max_tokens=700,
+        )
+        return resp.choices[0].message.content.strip()
+    except Exception as e:
+        logger.warning(f"AI editorial failed: {e}")
+        return None
+
+
+def _rehamna_params():
+    days = max(1, min(int(request.args.get("days", 1) or 1), 90))
+    limit = max(1, min(int(request.args.get("limit", 40) or 40), 120))
+    return days, limit
+
+
+@app.route("/rehamna/articles", methods=["GET"])
+def rehamna_articles():
+    days, limit = _rehamna_params()
+    terms = newspaper_pdf.load_terms("json")
+    found = newspaper_pdf.collect_articles(DATABASE_NAME, days=days, terms=terms, limit=limit)
+    articles = []
+    for a in found:
+        item = _row_to_article(a)
+        item["matched_terms"] = a.get("matched_terms", [])
+        articles.append(item)
+    return jsonify({"articles": articles, "count": len(articles), "days": days, "terms": terms})
+
+
+@app.route("/rehamna/newspaper.pdf", methods=["GET"])
+def rehamna_newspaper_pdf():
+    """Generate the Rehamna front-page newspaper.
+
+    Query params: days (1..90), limit, ai (1 = let the LLM write the editorial),
+    download (1 = force download instead of inline view)
+    """
+    days, limit = _rehamna_params()
+    use_ai = request.args.get("ai", "1") != "0"
+    terms = newspaper_pdf.load_terms("json")
+    articles = newspaper_pdf.collect_articles(DATABASE_NAME, days=days, terms=terms, limit=limit)
+
+    editorial = None
+    if use_ai and articles:
+        editorial = newspaper_pdf.ai_editorial(articles, _ai_rehamna_editorial)
+
+    pdf_bytes = newspaper_pdf.build_pdf(articles, days=days, editorial=editorial)
+
+    # Keep an archived copy next to the daily Excel/Word reports.
+    try:
+        now = datetime.now()
+        folder = os.path.join("reports", "rehamna", now.strftime("%Y"), now.strftime("%m"))
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, f"rehamna-{now:%Y-%m-%d}-{days}d.pdf"), "wb") as f:
+            f.write(pdf_bytes)
+    except Exception as e:
+        logger.warning(f"Could not archive newspaper PDF: {e}")
+
+    filename = f"rehamna-{datetime.now():%Y-%m-%d}.pdf"
+    disposition = "attachment" if request.args.get("download") == "1" else "inline"
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f'{disposition}; filename="{filename}"'},
+    )
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=True)

@@ -63,9 +63,46 @@
   }
 }
 
-body {
-  font-family: 'SF Pro meduim';
+@font-face {
+  font-family: 'SFPro';
+  src: url('../ttf/sfpro.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
 }
+@font-face {
+  font-family: 'SFPro';
+  src: url('../ttf/FontsFree-Net-SFProText-Semibold-1.ttf') format('truetype');
+  font-weight: 600 800;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Wafeq';
+  src: url('../ttf/Wafeq-Regular.otf') format('opentype');
+  font-weight: 400 800;
+  font-style: normal;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  overscroll-behavior: none;
+}
+body {
+  font-family: 'SFPro', 'Wafeq', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans Arabic', Tahoma, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer components {
+  .tb-btn {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 transition-colors
+      hover:bg-black/[0.06] hover:text-zinc-800 disabled:opacity-60
+      dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-100;
+  }
+}
+@layer utilities {
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+}
+.reader-body { font-family: 'Wafeq', 'SFPro', 'Noto Naskh Arabic', serif; }
 .animate-write path {
   stroke-dasharray: 1000;
   stroke-dashoffset: 1000;
