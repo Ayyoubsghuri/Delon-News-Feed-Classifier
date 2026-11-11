@@ -49,7 +49,9 @@ branches). Push a tag such as `v3.0.0` to publish them in a GitHub release.
 A newspaper built from every stored article that mentions Rehamna
 (الرحامنة، ابن جرير، سيدي بوعثمان، صخور الرحامنة…):
 
-- Masthead **أخبار الرحامنة** with the Arabic date, number of articles and sources.
+- Masthead **أخبار الرحامنة** (Lalezar) with a red date box, issue number and a headlines strip.
+- Typography like a printed Arabic daily: Cairo headlines, Noto Naskh body text, Tajawal labels,
+  red category tags and hairlines between columns.
 - **Lead story** with a large photo, then an **editorial** that summarizes all the news
   (written by AI when an OpenRouter key is configured, otherwise generated automatically).
 - **"في هذا العدد"** index box, then 3 right-to-left columns of stories with photos,
@@ -184,7 +186,7 @@ newspaper_pdf.py        Rehamna newspaper PDF generator (ReportLab + Arabic shap
 desktop.py              Desktop launcher used for Delon.exe
 delon.spec              PyInstaller build recipe
 json/                   Feeds, keywords, places, Rehamna terms
-fonts/                  Amiri Arabic font (OFL) for the PDF
+fonts/                  Newspaper fonts (OFL): Lalezar, Cairo, Noto Naskh Arabic, Tajawal
 build/                  Compiled React app served by Flask
 delon-frontend/         React + Tailwind source, Capacitor config for Android
 assets/                 App icons and splash screen
@@ -201,4 +203,5 @@ News monitoring · Arabic media analysis · Daily press reports · Local (Rehamn
 Social media impact tracking
 
 ## 📄 License
-Private / Internal Use. The Amiri font is licensed under the SIL Open Font License (`fonts/OFL.txt`).
+Private / Internal Use. The bundled fonts (Lalezar, Cairo, Noto Naskh Arabic, Tajawal) are
+licensed under the SIL Open Font License — see `fonts/licenses/`.
