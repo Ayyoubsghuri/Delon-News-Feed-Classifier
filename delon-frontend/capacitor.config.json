@@ -1,0 +1,12 @@
+{
+  "appId": "ma.delon.reader",
+  "appName": "Delon",
+  "webDir": "build",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

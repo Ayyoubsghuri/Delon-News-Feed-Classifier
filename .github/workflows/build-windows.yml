@@ -1,0 +1,61 @@
+name: Build Windows app (Delon.exe)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, "claude/**"]
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: delon-frontend/package-lock.json
+
+      - name: Build React UI
+        working-directory: delon-frontend
+        env:
+          CI: "false"
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy UI into backend
+        shell: pwsh
+        run: |
+          if (Test-Path build) { Remove-Item build -Recurse -Force }
+          Copy-Item delon-frontend/build build -Recurse
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-desktop.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements-desktop.txt
+
+      - name: Build Delon.exe
+        run: pyinstaller --noconfirm delon.spec
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Delon-windows
+          path: dist/Delon.exe
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Delon.exe

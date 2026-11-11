@@ -7,8 +7,12 @@ const {
 const svgToDataUri = require("mini-svg-data-uri");
 module.exports = {
     content: ["./src/**/*.{js,jsx,ts,tsx}"],
+    darkMode: "class",
     theme: {
       extend: {
+        fontFamily: {
+          ui: ["SFPro", "Wafeq", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Tahoma", "sans-serif"],
+        },
         keyframes: {
           wiggle: {
             '0%': { transform: 'translateY(-60px)' },
