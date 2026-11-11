@@ -16,6 +16,7 @@ import json
 import os
 import re
 import sys
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 
@@ -57,8 +58,29 @@ def _resource_dir() -> str:
 
 
 FONT_DIR = os.path.join(_resource_dir(), "fonts")
-FONT_REGULAR = "Amiri"
-FONT_BOLD = "Amiri-Bold"
+
+# Typography (all OFL fonts, see fonts/OFL.txt)
+MAST = "Lalezar"                 # masthead
+HEAD = "Cairo-ExtraBold"         # lead headline
+HEAD2 = "Cairo-Bold"             # story headlines
+BODY = "NotoNaskh"               # body text
+BODY_B = "NotoNaskh-SemiBold"    # standfirst / emphasis
+UI = "Tajawal-Medium"            # meta, captions
+UI_B = "Tajawal-Bold"            # labels, kickers
+
+# Backwards-compatible names
+FONT_REGULAR = BODY
+FONT_BOLD = HEAD2
+
+_FONT_FILES = {
+    MAST: "Lalezar-Regular.ttf",
+    HEAD: "Cairo-ExtraBold.ttf",
+    HEAD2: "Cairo-Bold.ttf",
+    BODY: "NotoNaskhArabic-Regular.ttf",
+    BODY_B: "NotoNaskhArabic-SemiBold.ttf",
+    UI: "Tajawal-Medium.ttf",
+    UI_B: "Tajawal-Bold.ttf",
+}
 _fonts_ready = False
 
 
@@ -66,20 +88,51 @@ def _register_fonts():
     global _fonts_ready
     if _fonts_ready:
         return
-    pdfmetrics.registerFont(TTFont(FONT_REGULAR, os.path.join(FONT_DIR, "Amiri-Regular.ttf")))
-    pdfmetrics.registerFont(TTFont(FONT_BOLD, os.path.join(FONT_DIR, "Amiri-Bold.ttf")))
+    for name, filename in _FONT_FILES.items():
+        pdfmetrics.registerFont(TTFont(name, os.path.join(FONT_DIR, filename)))
     _fonts_ready = True
+
+
+_CMAPS: dict = {}
+
+
+def _fit(text: str, font: str) -> str:
+    """Replace presentation-form glyphs the font lacks by their base letter.
+
+    Many modern Arabic fonts omit the *isolated* presentation forms
+    (e.g. U+FE8D ALEF ISOLATED) because shaping engines never need them;
+    the base letter has the same shape, so we fall back to it.
+    """
+    cmap = _CMAPS.get(font)
+    if cmap is None:
+        cmap = _CMAPS[font] = set(pdfmetrics.getFont(font).face.charToGlyph.keys())
+    out = []
+    for ch in text:
+        o = ord(ch)
+        if o >= 0xFB50 and o not in cmap:
+            d = unicodedata.decomposition(ch).split()
+            if d and d[0].startswith("<"):
+                ch = "".join(chr(int(x, 16)) for x in d[1:])
+        out.append(ch)
+    return "".join(out)
+
+
+def shape(text: str, font: str) -> str:
+    """Arabic shaping + bidi reordering, adapted to the font's glyph set."""
+    return get_display(_fit(arabic_reshaper.reshape(text), font), base_dir="R")
 
 
 # --------------------------------------------------------------------------
 # Palette
 # --------------------------------------------------------------------------
 
-INK = colors.HexColor("#111111")
-MUTED = colors.HexColor("#5b5b5b")
-RULE = colors.HexColor("#1a1a1a")
-ACCENT = colors.HexColor("#9b1c1c")
-PAPER_TINT = colors.HexColor("#f4efe6")
+INK = colors.HexColor("#141414")
+BODY_INK = colors.HexColor("#262626")
+MUTED = colors.HexColor("#6b6b6b")
+RULE = colors.HexColor("#141414")
+HAIR = colors.HexColor("#c9c4ba")
+ACCENT = colors.HexColor("#b4161b")      # newspaper red
+PAPER_TINT = colors.HexColor("#f3eee4")  # boxes
 
 ARABIC_MONTHS = [
     "يناير", "فبراير", "مارس", "أبريل", "ماي", "يونيو",
@@ -209,7 +262,7 @@ class RTLParagraph(Flowable):
 
     # -- measuring ------------------------------------------------------
     def _w(self, s):
-        return pdfmetrics.stringWidth(arabic_reshaper.reshape(s), self.font, self.size)
+        return pdfmetrics.stringWidth(shape(s, self.font), self.font, self.size)
 
     def _layout(self, width):
         lines = []
@@ -261,7 +314,7 @@ class RTLParagraph(Flowable):
         y = self.height - self.size  # baseline of first line
         for words, is_end in self._lines:
             logical = " ".join(words)
-            visual = get_display(arabic_reshaper.reshape(logical))
+            visual = shape(logical, self.font)
             if self.align == "center":
                 c.drawCentredString(self.width / 2, y, visual)
             elif self.align == "justify" and not is_end and len(words) > 1:
@@ -333,14 +386,14 @@ class Photo(Flowable):
         except Exception:
             c.setFillColor(PAPER_TINT)
             c.rect(0, top - ih, self.width, ih, stroke=0, fill=1)
-        c.setStrokeColor(colors.HexColor("#999999"))
-        c.setLineWidth(0.3)
+        c.setStrokeColor(HAIR)
+        c.setLineWidth(0.4)
         c.rect(0, top - ih, self.width, ih, stroke=1, fill=0)
         if self.caption:
             c.setFillColor(MUTED)
-            c.setFont(FONT_REGULAR, 7.5)
+            c.setFont(UI, 7.5)
             c.drawRightString(self.width, top - ih - 10,
-                              get_display(arabic_reshaper.reshape(clip(self.caption, 90))))
+                              shape(clip(self.caption, 90), UI))
 
 
 def _crop_to_ratio(img: PILImage.Image, ratio: float) -> PILImage.Image:
@@ -487,27 +540,144 @@ def default_editorial(articles: list[dict], days: int) -> str:
 # --------------------------------------------------------------------------
 
 PAGE_W, PAGE_H = A4
-MARGIN = 12 * mm
-GUTTER = 5 * mm
-MASTHEAD_H = 50 * mm
-LEAD_H = 118 * mm
-INNER_HEAD_H = 14 * mm
+MARGIN = 11 * mm
+GUTTER = 6 * mm
+MASTHEAD_H = 42 * mm
+LEAD_H = 122 * mm
+INNER_HEAD_H = 15 * mm
+FOOTER_H = 8 * mm
 N_COLS = 3
+COL_W = (PAGE_W - 2 * MARGIN - (N_COLS - 1) * GUTTER) / N_COLS
+
+ISSUE_EPOCH = datetime(2024, 1, 1)
 
 
 def _columns(top: float, bottom: float, prefix: str):
-    width = (PAGE_W - 2 * MARGIN - (N_COLS - 1) * GUTTER) / N_COLS
     frames = []
     # RTL newspaper: the first column is the right-most one.
     for i in range(N_COLS):
-        x = PAGE_W - MARGIN - (i + 1) * width - i * GUTTER
-        frames.append(Frame(x, bottom, width, top - bottom, id=f"{prefix}{i}",
+        x = PAGE_W - MARGIN - (i + 1) * COL_W - i * GUTTER
+        frames.append(Frame(x, bottom, COL_W, top - bottom, id=f"{prefix}{i}",
                             leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0))
-    return frames, width
+    return frames
 
 
-def _shape(s):
-    return get_display(arabic_reshaper.reshape(s))
+def _column_rules(c, top, bottom):
+    """Classic hairlines between columns."""
+    c.setStrokeColor(HAIR)
+    c.setLineWidth(0.5)
+    for i in range(1, N_COLS):
+        x = PAGE_W - MARGIN - i * COL_W - (i - 0.5) * GUTTER
+        c.line(x, bottom, x, top)
+
+
+def _text_w(s, font, size):
+    return pdfmetrics.stringWidth(shape(s, font), font, size)
+
+
+class Kicker(Flowable):
+    """Category label: red tag (filled) or red text with a short bar."""
+
+    def __init__(self, text, filled=False, size=8.5):
+        super().__init__()
+        self.text, self.filled, self.size = text or "", filled, size
+
+    def wrap(self, aw, ah):
+        self.width = aw
+        self.height = (self.size + 8) if self.text else 0
+        return aw, self.height
+
+    def draw(self):
+        if not self.text:
+            return
+        c = self.canv
+        w = _text_w(self.text, UI_B, self.size)
+        if self.filled:
+            c.setFillColor(ACCENT)
+            c.rect(self.width - w - 10, 2, w + 10, self.size + 5, stroke=0, fill=1)
+            c.setFillColor(colors.white)
+            c.setFont(UI_B, self.size)
+            c.drawRightString(self.width - 5, 5, shape(self.text, UI_B))
+        else:
+            c.setFillColor(ACCENT)
+            c.rect(self.width - 3, 3, 3, self.size + 1, stroke=0, fill=1)
+            c.setFont(UI_B, self.size)
+            c.drawRightString(self.width - 7, 4, shape(self.text, UI_B))
+
+
+class SectionBar(Flowable):
+    """Black bar with a white title — used for 'افتتاحية' / 'في هذا العدد'."""
+
+    def __init__(self, text, color=INK):
+        super().__init__()
+        self.text, self.color = text, color
+
+    def wrap(self, aw, ah):
+        self.width, self.height = aw, 20
+        return aw, self.height
+
+    def draw(self):
+        c = self.canv
+        c.setFillColor(self.color)
+        c.rect(0, 0, self.width, self.height, stroke=0, fill=1)
+        c.setFillColor(ACCENT)
+        c.rect(self.width - 5, 0, 5, self.height, stroke=0, fill=1)
+        c.setFillColor(colors.white)
+        c.setFont(HEAD2, 10.5)
+        c.drawRightString(self.width - 11, 5.5, shape(self.text, HEAD2))
+
+
+class EndMark(Flowable):
+    """Small red square closing a story, followed by a hairline."""
+
+    def wrap(self, aw, ah):
+        self.width, self.height = aw, 14
+        return aw, self.height
+
+    def draw(self):
+        c = self.canv
+        c.setStrokeColor(HAIR)
+        c.setLineWidth(0.6)
+        c.line(0, 4, self.width, 4)
+        c.setFillColor(ACCENT)
+        c.rect(self.width / 2 - 2.5, 1.5, 5, 5, stroke=0, fill=1)
+
+
+def _boxed(flowables, width, pad=7):
+    tbl = Table([[f] for f in flowables], colWidths=[width])
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), PAPER_TINT),
+        ("LEFTPADDING", (0, 0), (-1, -1), pad),
+        ("RIGHTPADDING", (0, 0), (-1, -1), pad),
+        ("TOPPADDING", (0, 0), (-1, -1), 1),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+        ("TOPPADDING", (0, 0), (-1, 0), pad),
+        ("BOTTOMPADDING", (0, -1), (-1, -1), pad),
+    ]))
+    return tbl
+
+
+def _fit_height(para: "RTLParagraph", width: float, height: float) -> "RTLParagraph":
+    """Keep only the whole lines that fit, ending with an ellipsis."""
+    para.wrap(width, height)
+    n = max(1, int(height // para.leading))
+    if len(para._lines) > n:
+        lines = para._lines[:n]
+        words, _ = lines[-1]
+        lines[-1] = (words[:-1] + [words[-1].rstrip("،,.") + "…"] if words else words, True)
+        para._lines = lines
+    return para
+
+
+def _deck(text: str, limit=190) -> str:
+    """First sentence(s) of the story, used as the standfirst."""
+    m = re.split(r"(?<=[.!؟?])\s+", text.strip())
+    out = ""
+    for s in m:
+        if len(out) + len(s) > limit and out:
+            break
+        out = f"{out} {s}".strip()
+    return clip(out, limit)
 
 
 def build_pdf(articles: list[dict], *, title: str = "أخبار الرحامنة",
@@ -515,6 +685,7 @@ def build_pdf(articles: list[dict], *, title: str = "أخبار الرحامنة
               issue_date: datetime | None = None) -> bytes:
     _register_fonts()
     issue_date = issue_date or datetime.now()
+    issue_no = max(1, (issue_date - ISSUE_EPOCH).days)
 
     # Fetch photos in parallel.
     with ThreadPoolExecutor(max_workers=8) as pool:
@@ -534,167 +705,238 @@ def build_pdf(articles: list[dict], *, title: str = "أخبار الرحامنة
                           topMargin=MARGIN, bottomMargin=MARGIN,
                           title=title, author="Delon", subject="Rehamna news digest")
 
-    content_top = PAGE_H - MARGIN - MASTHEAD_H
+    top = PAGE_H - MARGIN
+    content_top = top - MASTHEAD_H
     lead_bottom = content_top - LEAD_H
-    footer = MARGIN + 6 * mm
+    bottom = MARGIN + FOOTER_H
+    front_cols_top = lead_bottom - 5 * mm
+    inner_top = top - INNER_HEAD_H
+
     lead_frame = Frame(MARGIN, lead_bottom, PAGE_W - 2 * MARGIN, LEAD_H, id="lead",
                        leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
-    front_cols, col_w = _columns(lead_bottom - 4 * mm, footer, "f")
-    inner_cols, _ = _columns(PAGE_H - MARGIN - INNER_HEAD_H, footer, "i")
+    front_cols = _columns(front_cols_top, bottom, "f")
+    inner_cols = _columns(inner_top, bottom, "i")
 
-    period = "عدد يومي" if days <= 1 else f"حصيلة آخر {days} أيام"
+    period = "العدد اليومي" if days <= 1 else f"حصيلة آخر {days} أيام"
     sources = len({a.get("source") for a in articles if a.get("source")})
+    ticker = [clip(strip_html(a["title"]), 55) for a in articles[1:4]]
 
-    def draw_masthead(c, d):
-        c.saveState()
-        c.setFillColor(colors.white)
-        top = PAGE_H - MARGIN
-        # Top info strip
-        c.setFont(FONT_REGULAR, 8.5)
-        c.setFillColor(MUTED)
-        c.drawRightString(PAGE_W - MARGIN, top - 8, _shape(arabic_date(issue_date)))
-        c.drawString(MARGIN, top - 8, _shape(f"{len(articles)} خبرا • {sources} مصدرا"))
-        c.drawCentredString(PAGE_W / 2, top - 8, _shape(period))
+    def footer(c, d):
         c.setStrokeColor(RULE)
-        c.setLineWidth(0.5)
-        c.line(MARGIN, top - 12, PAGE_W - MARGIN, top - 12)
-        # Title
+        c.setLineWidth(0.8)
+        c.line(MARGIN, MARGIN + 5 * mm, PAGE_W - MARGIN, MARGIN + 5 * mm)
+        c.setFont(UI, 7.5)
+        c.setFillColor(MUTED)
+        c.drawRightString(PAGE_W - MARGIN, MARGIN + 1.2 * mm, shape(f"{title} • {arabic_date(issue_date)}", UI))
+        c.drawString(MARGIN, MARGIN + 1.2 * mm, "Delon")
+        c.setFont(UI_B, 9)
         c.setFillColor(INK)
-        c.setFont(FONT_BOLD, 50)
-        c.drawCentredString(PAGE_W / 2, top - 56, _shape(title))
-        c.setFont(FONT_REGULAR, 10)
+        c.drawCentredString(PAGE_W / 2, MARGIN + 1.2 * mm, str(d.page))
+
+    def draw_front(c, d):
+        c.saveState()
+        w = PAGE_W - 2 * MARGIN
+        # --- top strip
+        c.setFont(UI, 8)
         c.setFillColor(MUTED)
-        c.drawCentredString(PAGE_W / 2, top - 98,
-                            _shape("نشرة إخبارية تجمع كل ما نشرته المواقع عن إقليم الرحامنة"))
-        # Double rule
-        y = top - MASTHEAD_H + 8
+        c.drawRightString(PAGE_W - MARGIN, top - 7, shape("جريدة إلكترونية تجمع كل ما يُنشر عن إقليم الرحامنة", UI))
+        c.drawString(MARGIN, top - 7, shape(f"{period}", UI))
         c.setStrokeColor(RULE)
-        c.setLineWidth(2.2)
-        c.line(MARGIN, y + 3, PAGE_W - MARGIN, y + 3)
         c.setLineWidth(0.6)
+        c.line(MARGIN, top - 11, PAGE_W - MARGIN, top - 11)
+
+        # --- ears (date on the right, issue on the left)
+        ear_w, ear_h, ear_y = 36 * mm, 21 * mm, top - 13 - 25 * mm
+        c.setFillColor(ACCENT)
+        c.rect(PAGE_W - MARGIN - ear_w, ear_y, ear_w, ear_h, stroke=0, fill=1)
+        c.setFillColor(colors.white)
+        c.setFont(HEAD2, 12)
+        c.drawCentredString(PAGE_W - MARGIN - ear_w / 2, ear_y + ear_h - 17, shape(ARABIC_DAYS[issue_date.weekday()], HEAD2))
+        c.setFont(UI_B, 9)
+        c.drawCentredString(PAGE_W - MARGIN - ear_w / 2, ear_y + 15,
+                            shape(f"{issue_date.day} {ARABIC_MONTHS[issue_date.month - 1]} {issue_date.year}", UI_B))
+
+        c.setStrokeColor(INK)
+        c.setLineWidth(1)
+        c.rect(MARGIN, ear_y, ear_w, ear_h, stroke=1, fill=0)
+        c.setFillColor(INK)
+        c.setFont(HEAD2, 12)
+        c.drawCentredString(MARGIN + ear_w / 2, ear_y + ear_h - 17, shape(f"العدد {issue_no}", HEAD2))
+        c.setFont(UI, 8.5)
+        c.setFillColor(MUTED)
+        c.drawCentredString(MARGIN + ear_w / 2, ear_y + 15, shape(f"{len(articles)} خبرا من {sources} مصادر", UI))
+
+        # --- title
+        c.setFillColor(INK)
+        size = 64
+        while _text_w(title, MAST, size) > w - 2 * ear_w - 16 and size > 30:
+            size -= 2
+        c.setFont(MAST, size)
+        c.drawCentredString(PAGE_W / 2, ear_y + 9, shape(title, MAST))
+
+        # --- double rule
+        y = ear_y - 5
+        c.setLineWidth(2.6)
+        c.setStrokeColor(RULE)
         c.line(MARGIN, y, PAGE_W - MARGIN, y)
-        _footer(c, d)
+        c.setLineWidth(0.6)
+        c.line(MARGIN, y - 3.5, PAGE_W - MARGIN, y - 3.5)
+
+        # --- headlines ticker
+        band_top = y - 7
+        band_h = 15
+        c.setFillColor(INK)
+        c.rect(MARGIN, band_top - band_h, w, band_h, stroke=0, fill=1)
+        label = "عناوين العدد"
+        lw = _text_w(label, UI_B, 8.5) + 14
+        c.setFillColor(ACCENT)
+        c.rect(PAGE_W - MARGIN - lw, band_top - band_h, lw, band_h, stroke=0, fill=1)
+        c.setFillColor(colors.white)
+        c.setFont(UI_B, 8.5)
+        c.drawRightString(PAGE_W - MARGIN - 7, band_top - band_h + 4.5, shape(label, UI_B))
+        if ticker:
+            c.setFont(UI, 8.3)
+            avail = w - lw - 12
+            text = "   •   ".join(ticker)
+            while ticker and _text_w(text, UI, 8.3) > avail:
+                ticker.pop()
+                text = "   •   ".join(ticker)
+            c.drawRightString(PAGE_W - MARGIN - lw - 8, band_top - band_h + 4.5, shape(text, UI))
+
+        _column_rules(c, front_cols_top, bottom)
+        footer(c, d)
         c.restoreState()
 
     def draw_inner(c, d):
         c.saveState()
-        top = PAGE_H - MARGIN
         c.setFillColor(INK)
-        c.setFont(FONT_BOLD, 15)
-        c.drawRightString(PAGE_W - MARGIN, top - 14, _shape(title))
-        c.setFont(FONT_REGULAR, 8.5)
+        c.setFont(MAST, 22)
+        c.drawRightString(PAGE_W - MARGIN, top - 22, shape(title, MAST))
+        c.setFont(UI, 8.5)
         c.setFillColor(MUTED)
-        c.drawString(MARGIN, top - 12, _shape(arabic_date(issue_date)))
+        c.drawString(MARGIN, top - 18, shape(arabic_date(issue_date), UI))
+        c.setFillColor(ACCENT)
+        c.setFont(UI_B, 8.5)
+        c.drawCentredString(PAGE_W / 2, top - 18, shape(f"العدد {issue_no}", UI_B))
         c.setStrokeColor(RULE)
-        c.setLineWidth(1.4)
-        c.line(MARGIN, top - 20, PAGE_W - MARGIN, top - 20)
-        _footer(c, d)
+        c.setLineWidth(2.2)
+        c.line(MARGIN, top - 29, PAGE_W - MARGIN, top - 29)
+        c.setLineWidth(0.5)
+        c.line(MARGIN, top - 32, PAGE_W - MARGIN, top - 32)
+        _column_rules(c, inner_top - 4, bottom)
+        footer(c, d)
         c.restoreState()
 
-    def _footer(c, d):
-        c.setFont(FONT_REGULAR, 8)
-        c.setFillColor(MUTED)
-        c.setStrokeColor(colors.HexColor("#bbbbbb"))
-        c.setLineWidth(0.4)
-        c.line(MARGIN, MARGIN + 3 * mm, PAGE_W - MARGIN, MARGIN + 3 * mm)
-        c.drawCentredString(PAGE_W / 2, MARGIN, _shape(f"صفحة {d.page}"))
-        c.drawString(MARGIN, MARGIN, "Delon")
-
     doc.addPageTemplates([
-        PageTemplate(id="front", frames=[lead_frame] + front_cols, onPage=draw_masthead),
+        PageTemplate(id="front", frames=[lead_frame] + front_cols, onPage=draw_front),
         PageTemplate(id="inner", frames=inner_cols, onPage=draw_inner),
     ])
 
     story = [NextPageTemplate("inner")]
 
     if not articles:
-        story.append(RTLParagraph("لا توجد أخبار عن الرحامنة في الفترة المحددة.",
-                                  font=FONT_BOLD, size=22, align="center"))
-        story.append(Spacer(1, 6 * mm))
-        story.append(RTLParagraph(
-            "قم بتحديث الأخبار من التطبيق ثم أعد إنشاء النشرة، أو وسّع الفترة الزمنية.",
-            size=12, align="center", color=MUTED))
+        story += [
+            Spacer(1, 25 * mm),
+            RTLParagraph("لا توجد أخبار عن الرحامنة في الفترة المحددة", font=HEAD, size=24,
+                         leading=36, align="center"),
+            Spacer(1, 4 * mm),
+            RTLParagraph("قم بتحديث الأخبار من التطبيق ثم أعد إنشاء الجريدة، أو وسّع الفترة الزمنية.",
+                         font=BODY, size=12, align="center", color=MUTED),
+        ]
         doc.build(story)
         return buf.getvalue()
 
     # ---------------- Lead story ----------------
     lead = articles[0]
     lead_w = PAGE_W - 2 * MARGIN
+    lead_body = article_body(lead)
+    long_title = len(strip_html(lead["title"])) > 62
     lead_flow = [
-        RTLParagraph(lead.get("category") or "", font=FONT_BOLD, size=10,
-                     color=ACCENT, align="right"),
-        RTLParagraph(strip_html(lead["title"]), font=FONT_BOLD,
-                     size=25 if len(lead["title"]) < 60 else 21,
-                     leading=32 if len(lead["title"]) < 60 else 27, align="right"),
         Spacer(1, 2 * mm),
+        Kicker(lead.get("category") or "الحدث", filled=True, size=9),
+        Spacer(1, 1 * mm),
+        RTLParagraph(strip_html(lead["title"]), font=HEAD, size=24 if long_title else 29,
+                     leading=36 if long_title else 43, align="right", color=INK),
+        RTLParagraph(_deck(lead_body), font=BODY_B, size=12, leading=20,
+                     align="right", color=MUTED),
+        Spacer(1, 2.5 * mm),
     ]
-    text_w = lead_w * 0.40
+    text_w = COL_W
     img_w = lead_w - text_w - GUTTER
+    deck = _deck(lead_body)
+    rest = lead_body
+    if rest.startswith(deck.rstrip("…")):
+        rest = rest[len(deck.rstrip("…")):].strip() or lead_body
     lead_text = [
-        RTLParagraph(_meta(lead), size=8.5, color=MUTED, align="right"),
+        RTLParagraph(_meta(lead), font=UI, size=8, color=ACCENT, align="right"),
         Spacer(1, 1.5 * mm),
-        RTLParagraph(clip(article_body(lead), 900), size=11.5, leading=17),
+        _fit_height(RTLParagraph(rest, font=BODY, size=10, leading=16.5, color=BODY_INK),
+                    COL_W, 66 * mm - 14),
     ]
     if lead.get("_photo"):
         tbl = Table(
-            [[KeepInFrame(text_w, 80 * mm, lead_text, mode="truncate"),
-              Photo(lead["_photo"], 74 * mm, caption=lead.get("source"))]],
-            colWidths=[text_w, img_w + GUTTER],
+            [[KeepInFrame(text_w, 70 * mm, lead_text, mode="truncate"),
+              Photo(lead["_photo"], 66 * mm, caption=f"المصدر: {lead.get('source') or ''}")]],
+            colWidths=[text_w + GUTTER, img_w],
         )
         tbl.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("LEFTPADDING", (0, 0), (-1, -1), 0),
             ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-            ("LEFTPADDING", (1, 0), (1, 0), GUTTER),
+            ("RIGHTPADDING", (0, 0), (0, 0), GUTTER),
             ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ("LINEAFTER", (0, 0), (0, 0), 0.5, HAIR),
         ]))
         lead_flow.append(tbl)
     else:
         lead_flow += lead_text
-    story.append(KeepInFrame(lead_w, LEAD_H - 2, lead_flow, mode="truncate"))
+    story.append(KeepInFrame(lead_w, LEAD_H - 2, lead_flow, mode="shrink"))
     story.append(FrameBreak())
 
     # ---------------- Editorial ("generated article") ----------------
     editorial = editorial or default_editorial(articles, days)
     story += [
-        _box_heading("افتتاحية العدد", col_w),
-        Spacer(1, 1.5 * mm),
-        RTLParagraph(editorial, size=10.5, leading=15.5),
+        SectionBar("افتتاحية العدد"),
         Spacer(1, 2 * mm),
-        Rule(thickness=0.8),
+        RTLParagraph(editorial, font=BODY, size=9.8, leading=16, color=BODY_INK),
+        Spacer(1, 1 * mm),
+        EndMark(),
     ]
 
     # ---------------- Index box ----------------
-    index_lines = [f"• {clip(strip_html(a['title']), 60)}" for a in articles[1:9]]
-    if index_lines:
-        story += [
-            _box_heading("في هذا العدد", col_w),
-            Spacer(1, 1 * mm),
-            RTLParagraph("\n".join(index_lines), size=9, leading=13, align="right"),
-            Rule(thickness=0.8),
-        ]
+    others = articles[1:8]
+    if others:
+        items = [SectionBar("في هذا العدد", color=ACCENT), Spacer(1, 2 * mm)]
+        for n, a in enumerate(others, start=1):
+            items.append(RTLParagraph(f"{n}. {clip(strip_html(a['title']), 70)}",
+                                      font=UI_B, size=8.6, leading=13, align="right", color=INK))
+            items.append(Spacer(1, 1.2 * mm))
+        story += [KeepTogether([_boxed(items, COL_W, pad=0)]), Spacer(1, 4 * mm)]
 
     # ---------------- Other stories ----------------
     for i, a in enumerate(articles[1:], start=1):
+        body = article_body(a)
+        big = i <= 3
         head = [
-            RTLParagraph(a.get("category") or "", font=FONT_BOLD, size=8.5,
-                         color=ACCENT, align="right"),
-            RTLParagraph(strip_html(a["title"]), font=FONT_BOLD,
-                         size=15 if i <= 3 else 13, leading=20 if i <= 3 else 17,
-                         align="right"),
-            RTLParagraph(_meta(a), size=8, color=MUTED, align="right"),
-            Spacer(1, 1.5 * mm),
+            Kicker(a.get("category") or ""),
+            RTLParagraph(strip_html(a["title"]), font=HEAD2,
+                         size=14.5 if big else 12.5, leading=22 if big else 19,
+                         align="right", color=INK),
+            Spacer(1, 0.8 * mm),
+            RTLParagraph(_meta(a), font=UI, size=7.6, color=MUTED, align="right"),
+            Spacer(1, 1.8 * mm),
         ]
         if a.get("_photo"):
-            head.append(Photo(a["_photo"], col_w * (0.66 if i <= 6 else 0.56)))
-        story.append(CondFrameBreak(42 * mm))
+            head.append(Photo(a["_photo"], COL_W * (0.68 if i <= 6 else 0.58)))
+            head.append(Spacer(1, 1 * mm))
+        story.append(CondFrameBreak(48 * mm))
         story.append(KeepTogether(head))
-        story.append(RTLParagraph(clip(article_body(a), 1100 if i <= 3 else 700),
-                                  size=10, leading=14.5))
-        if a.get("link"):
-            story.append(RTLParagraph(f"المصدر: {a.get('source') or ''}", size=7.5,
-                                      color=MUTED, align="right"))
-        story.append(Rule(thickness=0.4, color=colors.HexColor("#888888"), space=5))
+        story.append(RTLParagraph(clip(body, 1200 if big else 750), font=BODY,
+                                  size=9.6, leading=15.6, color=BODY_INK))
+        story.append(Spacer(1, 1 * mm))
+        story.append(EndMark())
+        story.append(Spacer(1, 1.5 * mm))
 
     doc.build(story)
     return buf.getvalue()
@@ -702,9 +944,10 @@ def build_pdf(articles: list[dict], *, title: str = "أخبار الرحامنة
 
 def _meta(a: dict) -> str:
     when = parse_pub_date(a.get("pubDate"))
-    when_txt = when.strftime("%H:%M  %d/%m/%Y") if when else ""
+    when_txt = f"{when.day} {ARABIC_MONTHS[when.month - 1]} • {when:%H:%M}" if when else ""
     src = a.get("source") or ""
-    return " • ".join(x for x in (src, when_txt) if x)
+    # Date first: keeps numbers in Arabic context so bidi ordering stays natural.
+    return " | ".join(x for x in (when_txt, src) if x)
 
 
 class CondFrameBreak(Flowable):
@@ -724,30 +967,6 @@ class CondFrameBreak(Flowable):
 
     def draw(self):
         pass
-
-
-class _BoxHeading(Flowable):
-    def __init__(self, text, width):
-        super().__init__()
-        self.text = text
-        self.w = width
-
-    def wrap(self, aw, ah):
-        self.width = aw
-        self.height = 18
-        return aw, self.height
-
-    def draw(self):
-        c = self.canv
-        c.setFillColor(INK)
-        c.rect(0, 0, self.width, self.height, stroke=0, fill=1)
-        c.setFillColor(colors.white)
-        c.setFont(FONT_BOLD, 11)
-        c.drawRightString(self.width - 5, 5, _shape(self.text))
-
-
-def _box_heading(text, width):
-    return _BoxHeading(text, width)
 
 
 # --------------------------------------------------------------------------

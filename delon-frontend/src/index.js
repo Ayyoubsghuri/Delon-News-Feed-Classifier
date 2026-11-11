@@ -1,12 +1,23 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { isNative } from './lib/api';
 import reportWebVitals from './reportWebVitals';
+
+// The Android build is fully standalone (no server). `?mobile=1` previews it in a browser.
+const standalone = isNative() || new URLSearchParams(window.location.search).has('mobile');
+const MobileApp = lazy(() => import('./mobile/MobileApp'));
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <App />
+    {standalone ? (
+      <Suspense fallback={null}>
+        <MobileApp />
+      </Suspense>
+    ) : (
+      <App />
+    )}
   </React.StrictMode>
 );
 

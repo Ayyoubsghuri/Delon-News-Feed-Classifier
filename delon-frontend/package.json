@@ -4,8 +4,11 @@
   "private": true,
   "dependencies": {
     "@availity/mui-backdrop": "^0.2.0",
+    "@capacitor/app": "^7.1.2",
     "@capacitor/browser": "^7.0.5",
     "@capacitor/core": "^7.6.10",
+    "@capacitor/filesystem": "^7.1.9",
+    "@capacitor/share": "^7.0.4",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@mui/material": "^6.4.4",
@@ -15,10 +18,12 @@
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "bidi-js": "^1.0.3",
     "chart.js": "^4.6.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.4.3",
     "html-react-parser": "^5.2.2",
+    "jspdf": "^2.5.2",
     "lucide-react": "^0.487.0",
     "mini-svg-data-uri": "^1.4.4",
     "motion": "^12.4.1",
@@ -41,7 +46,9 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "build:android": "react-scripts build && cap sync android",
-    "android:init": "cap add android"
+    "android:init": "cap add android",
+    "prebuild": "node scripts/copy-data.js",
+    "prestart": "node scripts/copy-data.js"
   },
   "eslintConfig": {
     "extends": [

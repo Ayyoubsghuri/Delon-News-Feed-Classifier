@@ -39,7 +39,9 @@ branches). Push a tag such as `v3.0.0` to publish them in a GitHub release.
 - **Reader**: large title, source, author • time, photo and comfortable Arabic typography.
 - Toolbar: AI summary ✨, bookmark, share counts, delete, mark unread, open the original.
 - Search, mark-all-as-read, light / dark / system theme.
-- On phones the panes stack (sidebar → list → article) with back buttons.
+- On phones the panes stack (sidebar → list → article) with back buttons and slide transitions.
+- Smooth animations: sliding selection highlights, staggered lists, article fade-ins, animated
+  dialogs and folders (automatically reduced when the OS "reduce motion" setting is on).
 - Read state and bookmarks are stored on the device.
 
 ### 🗞️ Rehamna front-page PDF
@@ -49,7 +51,9 @@ branches). Push a tag such as `v3.0.0` to publish them in a GitHub release.
 A newspaper built from every stored article that mentions Rehamna
 (الرحامنة، ابن جرير، سيدي بوعثمان، صخور الرحامنة…):
 
-- Masthead **أخبار الرحامنة** with the Arabic date, number of articles and sources.
+- Masthead **أخبار الرحامنة** (Lalezar) with a red date box, issue number and a headlines strip.
+- Typography like a printed Arabic daily: Cairo headlines, Noto Naskh body text, Tajawal labels,
+  red category tags and hairlines between columns.
 - **Lead story** with a large photo, then an **editorial** that summarizes all the news
   (written by AI when an OpenRouter key is configured, otherwise generated automatically).
 - **"في هذا العدد"** index box, then 3 right-to-left columns of stories with photos,
@@ -71,7 +75,11 @@ In the app: **sidebar → Front page PDF…** (or the **PDF** button in the Reha
 6. **Feed management** — add a website and Delon finds its RSS feed (`json/links.json`).
 7. **Social share analytics** (SharedCount, optional).
 8. **Daily Excel & Word reports** and feed-health reports.
-9. **Analytics dashboard** (charts of sources, timeline, places, categories).
+9. **Analytics dashboard** — animated KPIs, articles per day (with Rehamna overlay), categories
+   donut, top sources, publishing hours and most-mentioned places for 7 / 30 / 90 days
+   (`GET /analytics/overview?days=30`).
+
+   ![Analytics](screenshots/analytics-dark.png)
 
 ---
 
@@ -85,7 +93,7 @@ Command-line options:
 
 | Option | Effect |
 |---|---|
-| `--lan` | Also listen on your Wi-Fi so the Android app can use this PC as its server (address shown in the window title) |
+| `--lan` | Also listen on your Wi-Fi so other devices can open Delon in a browser (address shown in the window title) |
 | `--port 5000` | Preferred port (the next free one is used if busy) |
 | `--browser` | Open in your web browser instead of an app window |
 | `--headless` | Run only the server |
@@ -93,13 +101,31 @@ Command-line options:
 > The window uses Microsoft Edge WebView2 (built into Windows 10/11). If it is missing,
 > Delon opens in your browser instead.
 
-## 📱 Android app
+## 📱 Android app — standalone
 
-The phone shows the news, but the news engine (Python) runs on a server. On first launch,
-enter your server address in **Settings**, then tap **Test connection**:
+`Delon.apk` works **on its own: no PC or server needed**. Everything the Python backend does
+runs inside the phone:
 
-- a PC on the same Wi-Fi running `Delon.exe --lan` → e.g. `http://192.168.1.20:5000`
-- or your online server (e.g. Render) → `https://your-app.onrender.com`
+- **Fetches all RSS feeds** directly (native HTTP, no CORS limits), filters them with the same
+  places + keywords, classifies them with the same weighted rules, removes near-duplicates
+  and balances categories — a JavaScript port of `main.py`.
+- **Stores the news on the phone** (IndexedDB), keeps it 7 / 30 / 90 days (bookmarks forever),
+  updates automatically when opened (if older than 30 min) and with pull-to-refresh.
+- **Builds the Rehamna front-page PDF on the phone** (photos, columns, Arabic typography) and
+  opens the share sheet to save it, send it on WhatsApp, print, etc.
+- **AI summaries / editorial**: optional — paste an OpenRouter key in Settings.
+- Manage sources (add a site, remove a site) and edit the Rehamna words in Settings.
+
+Its own mobile design: bottom tab bar (Home · Rehamna · Saved · Stats · Settings), photo cards,
+a featured story, category chips, full-screen articles with a parallax photo, bottom sheets and
+swipe-friendly animations. Preview it in a browser with `http://localhost:3000/?mobile=1`.
+
+<p align="center">
+  <img src="screenshots/mobile-home.png" width="24%" alt="Home" />
+  <img src="screenshots/mobile-article.png" width="24%" alt="Article" />
+  <img src="screenshots/mobile-rehamna.png" width="24%" alt="Rehamna" />
+  <img src="screenshots/mobile-settings.png" width="24%" alt="Settings" />
+</p>
 
 The APK is debug-signed: it installs directly (allow "install unknown apps"); a release
 key is only needed to publish on the Play Store.
@@ -184,7 +210,7 @@ newspaper_pdf.py        Rehamna newspaper PDF generator (ReportLab + Arabic shap
 desktop.py              Desktop launcher used for Delon.exe
 delon.spec              PyInstaller build recipe
 json/                   Feeds, keywords, places, Rehamna terms
-fonts/                  Amiri Arabic font (OFL) for the PDF
+fonts/                  Newspaper fonts (OFL): Lalezar, Cairo, Noto Naskh Arabic, Tajawal
 build/                  Compiled React app served by Flask
 delon-frontend/         React + Tailwind source, Capacitor config for Android
 assets/                 App icons and splash screen
@@ -201,4 +227,5 @@ News monitoring · Arabic media analysis · Daily press reports · Local (Rehamn
 Social media impact tracking
 
 ## 📄 License
-Private / Internal Use. The Amiri font is licensed under the SIL Open Font License (`fonts/OFL.txt`).
+Private / Internal Use. The bundled fonts (Lalezar, Cairo, Noto Naskh Arabic, Tajawal) are
+licensed under the SIL Open Font License — see `fonts/licenses/`.

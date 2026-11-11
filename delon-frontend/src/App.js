@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
+import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import "./css/index.css";
 
 import Sidebar from "./components/reader/Sidebar";
 import ArticleList from "./components/reader/ArticleList";
 import ArticleView from "./components/reader/ArticleView";
 import { Modal, AddFeedDialog, NewspaperDialog, SettingsDialog } from "./components/reader/Dialogs";
-import Info from "./components/info";
+import Analytics from "./components/reader/Analytics";
 import { apiUrl, fetchJSON, needsServerSetup } from "./lib/api";
 import { isToday, parseDate, stripHtml } from "./lib/format";
 
@@ -42,7 +43,11 @@ function useIsMobile() {
   return m;
 }
 
-const notify = (text) => toast(text, { position: "bottom-center", style: { fontSize: 13 } });
+const notify = (text) =>
+  toast(text, {
+    position: "bottom-center",
+    className: "!text-[13px] dark:!bg-zinc-800 dark:!text-zinc-100",
+  });
 const sortByDate = (list) =>
   [...list].sort(
     (a, b) =>
@@ -62,7 +67,13 @@ export default function App() {
   const [bookmarks, setBookmarks] = useStored("delon.bookmarks", {});
   const [theme, setTheme] = useStored("delon.theme", "system");
   const [showSidebar, setShowSidebar] = useStored("delon.sidebar", true);
-  const [mobileView, setMobileView] = useState("list"); // sidebar | list | article
+  const [mobileView, setMobileViewRaw] = useState("list"); // sidebar | list | article
+  const [direction, setDirection] = useState(1);
+  const ORDER = { sidebar: 0, list: 1, article: 2 };
+  const setMobileView = (next) => {
+    setDirection(ORDER[next] >= ORDER[mobileView] ? 1 : -1);
+    setMobileViewRaw(next);
+  };
   const [dialog, setDialog] = useState(needsServerSetup() ? "setup" : null);
   const syncingRef = useRef(false);
 
@@ -287,30 +298,63 @@ export default function App() {
     />
   );
 
+  const slide = {
+    enter: (d) => ({ x: d > 0 ? "100%" : "-30%", opacity: d > 0 ? 1 : 0.6 }),
+    center: { x: 0, opacity: 1 },
+    exit: (d) => ({ x: d > 0 ? "-30%" : "100%", opacity: d > 0 ? 0.6 : 1 }),
+  };
+
   return (
+    <MotionConfig reducedMotion="user">
     <div className="h-[100dvh] w-full overflow-hidden bg-white text-zinc-900 dark:bg-[#1c1c1e] dark:text-zinc-100 font-ui antialiased">
       {isMobile ? (
-        <div className="h-full">
-          {mobileView === "sidebar" && sidebar}
-          {mobileView === "list" && list}
-          {mobileView === "article" && view}
+        <div className="relative h-full overflow-hidden">
+          <AnimatePresence initial={false} custom={direction}>
+            <motion.div
+              key={mobileView}
+              custom={direction}
+              variants={slide}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ type: "spring", stiffness: 380, damping: 38 }}
+              className="absolute inset-0 shadow-[-8px_0_24px_rgba(0,0,0,0.08)]"
+            >
+              {mobileView === "sidebar" && sidebar}
+              {mobileView === "list" && list}
+              {mobileView === "article" && view}
+            </motion.div>
+          </AnimatePresence>
         </div>
       ) : (
         <div className="flex h-full">
-          {showSidebar && (
-            <div className="w-[250px] shrink-0 border-r border-black/10 dark:border-black/40">{sidebar}</div>
-          )}
+          <AnimatePresence initial={false}>
+            {showSidebar && (
+              <motion.div
+                key="sidebar"
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 250, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 400, damping: 40 }}
+                className="shrink-0 overflow-hidden border-r border-black/10 dark:border-black/40"
+              >
+                <div className="h-full w-[250px]">{sidebar}</div>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <div className="w-[320px] lg:w-[340px] shrink-0">{list}</div>
           <div className="min-w-0 flex-1">{view}</div>
         </div>
       )}
 
-      {dialog === "add" && <AddFeedDialog onClose={() => setDialog(null)} notify={notify} />}
+      <AnimatePresence>
+      {dialog === "add" && <AddFeedDialog key="add" onClose={() => setDialog(null)} notify={notify} />}
       {dialog === "newspaper" && (
-        <NewspaperDialog onClose={() => setDialog(null)} count={rehamna.filter((a) => isToday(a.pubDate || a.timestamp)).length} />
+        <NewspaperDialog key="np" onClose={() => setDialog(null)} count={rehamna.filter((a) => isToday(a.pubDate || a.timestamp)).length} />
       )}
       {(dialog === "settings" || dialog === "setup") && (
         <SettingsDialog
+          key="settings"
           firstRun={dialog === "setup"}
           theme={theme}
           setTheme={setTheme}
@@ -319,11 +363,13 @@ export default function App() {
         />
       )}
       {dialog === "charts" && (
-        <Modal title="Analytics" wide onClose={() => setDialog(null)}>
-          <Info />
+        <Modal key="charts" title="Analytics" wide onClose={() => setDialog(null)}>
+          <Analytics />
         </Modal>
       )}
+      </AnimatePresence>
       <Toaster />
     </div>
+    </MotionConfig>
   );
 }
