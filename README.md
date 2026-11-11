@@ -116,9 +116,12 @@ runs inside the phone:
 - **AI summaries / editorial**: optional — paste an OpenRouter key in Settings.
 - Manage sources (add a site, remove a site) and edit the Rehamna words in Settings.
 
-Its own mobile design: bottom tab bar (Home · Rehamna · Saved · Stats · Settings), photo cards,
-a featured story, category chips, full-screen articles with a parallax photo, bottom sheets and
-swipe-friendly animations. Preview it in a browser with `http://localhost:3000/?mobile=1`.
+Its own mobile design — a clean editorial look (white, black and orange): centered logo,
+**Overview** photo tiles for Rehamna and each category, a large lead story, story rows with
+thumbnails, bookmark and "…" actions, a black bottom bar (Home · Rehamna · Categories ·
+Bookmarks · Menu), a categories / sources grid, period filters (All · Today · Week · Month),
+and full-screen articles with a black action bar (AI summary, **Aa** reading settings — text
+size, Sans/Serif, white/sepia/gray/dark — bookmark, share, more). Preview it in a browser with `http://localhost:3000/?mobile=1`.
 
 <p align="center">
   <img src="screenshots/mobile-home.png" width="24%" alt="Home" />
