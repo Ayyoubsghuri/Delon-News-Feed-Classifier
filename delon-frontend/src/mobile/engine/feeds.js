@@ -84,20 +84,96 @@ function sanitizeXml(text) {
     .trim();
 }
 
-function parseXml(text) {
+const kids = (el, name) => Array.from(el.getElementsByTagName(name));
+
+// Returns the parsed document and how much repair it needed:
+// "clean" | "sanitized" (invalid characters / & fixed) | "html" (XML broken, read leniently)
+function parseXmlDiag(text) {
   const p = new DOMParser();
   let doc = p.parseFromString(text, "text/xml");
-  if (doc.getElementsByTagName("parsererror").length) {
-    doc = p.parseFromString(sanitizeXml(text), "text/xml");
+  if (!doc.getElementsByTagName("parsererror").length) return { doc, mode: "clean" };
+  doc = p.parseFromString(sanitizeXml(text), "text/xml");
+  if (!doc.getElementsByTagName("parsererror").length) return { doc, mode: "sanitized" };
+  // Very broken feeds: the HTML parser still finds <item>/<entry> tags.
+  return { doc: p.parseFromString(text, "text/html"), mode: "html" };
+}
+const parseXml = (text) => parseXmlDiag(text).doc;
+
+const looksLikeFeed = (text) => /<(rss|feed|rdf:RDF|channel)[\s>]/i.test((text || "").slice(0, 5000));
+
+/** Explain why a feed URL works or not (same wording as the server). */
+export function diagnoseFeedText(text) {
+  if (!text || !text.trim()) return { level: "error", reason: "Empty response", items: 0 };
+  if (!looksLikeFeed(text)) {
+    return { level: "error", reason: /<html|<!doctype html/i.test(text.slice(0, 3000)) ? "Not an RSS feed (HTML page)" : "Not an RSS feed", items: 0 };
   }
-  if (doc.getElementsByTagName("parsererror").length) {
-    // Very broken feeds: the HTML parser still finds <item>/<entry> tags.
-    doc = p.parseFromString(text, "text/html");
-  }
-  return doc;
+  const { doc, mode } = parseXmlDiag(text);
+  const items = (kids(doc, "item").length || kids(doc, "entry").length);
+  if (mode === "html" && !items) return { level: "error", reason: "Broken XML", items: 0 };
+  if (!items) return { level: "error", reason: "Feed is empty", items: 0 };
+  if (mode === "sanitized") return { level: "warning", reason: "XML errors (repaired automatically)", items };
+  if (mode === "html") return { level: "warning", reason: "Broken XML (partly recovered)", items };
+  return { level: "ok", reason: "OK", items };
 }
 
-const kids = (el, name) => Array.from(el.getElementsByTagName(name));
+export function classifyFetchError(err) {
+  const m = String((err && (err.message || err.code || err)) || "").toLowerCase();
+  if (/ssl|certificat|certpath|trust anchor|handshake|tls/.test(m)) return "SSL certificate error";
+  if (/timeout|timed out/.test(m)) return "Timeout (site too slow)";
+  if (/unknownhost|unable to resolve|name not resolved|enotfound|no address associated/.test(m)) return "Site not found (DNS)";
+  const h = m.match(/http (\d{3})/);
+  if (h) return `HTTP ${h[1]} error`;
+  if (/refused|reset|closed|eof/.test(m)) return "Connection refused";
+  if (/failed to fetch|networkerror|cors/.test(m)) return "Blocked by the browser (CORS)";
+  return "Network error";
+}
+
+async function checkUrl(src, url) {
+  const started = Date.now();
+  try {
+    const text = await fetchText(url);
+    return { source: src, url, ...diagnoseFeedText(text), ms: Date.now() - started, text };
+  } catch (e) {
+    return { source: src, url, level: "error", reason: classifyFetchError(e), detail: String((e && e.message) || e).slice(0, 200), items: 0, ms: Date.now() - started };
+  }
+}
+
+async function saveHealth(results) {
+  await kvSet("feeds.health", {
+    checkedAt: new Date().toISOString(),
+    results: results.map(({ text, ...r }) => r),
+  });
+}
+
+export async function feedHealthSummary() {
+  const h = await kvGet("feeds.health", null);
+  if (!h || !h.results.length) return null;
+  const res = h.results;
+  const problems = res.filter((r) => r.level !== "ok").sort((a, b) => (a.level === b.level ? (a.source || "").localeCompare(b.source || "") : a.level === "error" ? -1 : 1));
+  return {
+    checkedAt: h.checkedAt,
+    total: res.length,
+    ok: res.filter((r) => r.level === "ok").length,
+    warnings: res.filter((r) => r.level === "warning").length,
+    errors: res.filter((r) => r.level === "error").length,
+    problems,
+  };
+}
+
+/** Check every feed URL now (no articles are saved). */
+export async function checkAllFeeds(onProgress) {
+  const feeds = await getFeeds();
+  const jobs = Object.entries(feeds).flatMap(([src, urls]) => urls.map((url) => ({ src, url })));
+  let done = 0;
+  const results = [];
+  await pool(jobs, 8, async ({ src, url }) => {
+    results.push(await checkUrl(src, url));
+    onProgress && onProgress(++done / jobs.length);
+  });
+  await saveHealth(results);
+  return feedHealthSummary();
+}
+
 function first(el, ...names) {
   for (const n of names) {
     const found = el.getElementsByTagName(n)[0];
@@ -107,7 +183,7 @@ function first(el, ...names) {
 }
 
 export function parseFeed(text) {
-  if (!text || !/<(rss|feed|rdf|channel|item|entry)/i.test(text.slice(0, 5000))) return [];
+  if (!text || !looksLikeFeed(text)) return [];
   const doc = parseXml(text);
   const items = kids(doc, "item").length ? kids(doc, "item") : kids(doc, "entry");
   return items.map((it) => {
@@ -180,17 +256,10 @@ export async function syncAll({ onProgress, firstRun } = {}) {
   const byLink = new Map(existing.map((a) => [a.link, a]));
   const seenTitles = new Set(existing.map((a) => normalizeArabic(a.title)));
 
-  const jobs = [];
-  const seenUrls = new Set();
-  Object.entries(feeds).forEach(([src, urls]) =>
-    urls.forEach((u) => {
-      const key = u.replace(/\/+$/, "").replace(/^http:/, "https:");
-      if (!seenUrls.has(key)) {
-        seenUrls.add(key);
-        jobs.push({ src, url: u });
-      }
-    })
-  );
+  // Every feed URL is fetched so the health check covers all of them;
+  // duplicate stories are removed by title below.
+  const jobs = Object.entries(feeds).flatMap(([src, urls]) => urls.map((url) => ({ src, url })));
+  const health = [];
 
   let done = 0;
   let broken = 0;
@@ -200,8 +269,13 @@ export async function syncAll({ onProgress, firstRun } = {}) {
 
   await pool(jobs, 6, async ({ src, url }) => {
     try {
-      const entries = parseFeed(await fetchText(url));
-      if (!entries.length) broken++;
+      const check = await checkUrl(src, url);
+      health.push(check);
+      if (check.level === "error") {
+        broken++;
+        return;
+      }
+      const entries = parseFeed(check.text);
       for (const e of entries) {
         if (!e.pubDate || !inWindow(e.pubDate, firstRun ? 48 : 0)) continue;
         if (deleted.has(e.title) || byLink.has(e.link)) continue;
@@ -241,6 +315,7 @@ export async function syncAll({ onProgress, firstRun } = {}) {
   const balanced = balanceCategories(final, others);
 
   await putArticles(balanced);
+  await saveHealth(health);
   await kvSet("sync.last", Date.now());
   await pruneOlderThan(await kvGet("settings.retention", 30));
   return { added: balanced.length, feeds: jobs.length, broken };

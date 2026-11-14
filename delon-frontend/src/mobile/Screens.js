@@ -6,7 +6,7 @@ import { timeAgo } from "../lib/format";
 import { CATEGORIES } from "./engine/classify";
 import { buildNewspaper, collect, savePdf } from "./engine/newspaper";
 import { editorial as aiEditorial, aiConfig } from "./engine/ai";
-import { getFeeds, addFeed, removeFeed, getTerms, saveRehamnaTerms } from "./engine/feeds";
+import { getFeeds, addFeed, removeFeed, getTerms, saveRehamnaTerms, checkAllFeeds, feedHealthSummary } from "./engine/feeds";
 import { kvGet, kvSet, clearAll } from "./engine/store";
 import { stripHtml } from "./engine/classify";
 import Analytics from "../components/reader/Analytics";
@@ -307,11 +307,12 @@ export function StatsScreen({ articles }) {
   useEffect(() => {
     getFeeds().then((f) => setFeedsCount(Object.values(f).reduce((a, v) => a + v.length, 0)));
   }, []);
+  const loader = async (d) => overview(articles, d, feedsCount, await feedHealthSummary());
   return (
     <div className="pb-28">
       <Masthead title="THE LEDGER" sub="FIGURES & STATISTICS" />
       <div className="gz-stats">
-        <Analytics compact loader={async (d) => overview(articles, d, feedsCount)} key={`${articles.length}-${feedsCount}`} />
+        <Analytics compact loader={loader} onCheckFeeds={checkAllFeeds} key={`${articles.length}-${feedsCount}`} />
       </div>
     </div>
   );

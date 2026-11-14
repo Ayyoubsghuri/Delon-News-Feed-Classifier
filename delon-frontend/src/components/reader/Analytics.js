@@ -4,7 +4,7 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   PieChart, Pie, Cell, BarChart, Bar,
 } from "recharts";
-import { RefreshCw, TrendingUp, TrendingDown, Newspaper, Rss, CalendarDays, Layers } from "lucide-react";
+import { RefreshCw, TrendingUp, TrendingDown, Newspaper, Rss, CalendarDays, Layers, ShieldAlert, CheckCircle2, AlertTriangle } from "lucide-react";
 import { fetchJSON } from "../../lib/api";
 
 // Validated categorical palette (light / dark steps of the same hues).
@@ -107,7 +107,7 @@ const shortDate = (d) => {
   return dt.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 };
 
-export default function Analytics({ loader, compact = false }) {
+export default function Analytics({ loader, compact = false, onCheckFeeds }) {
   const dark = useDark();
   const pal = dark ? PALETTE.dark : PALETTE.light;
   const [days, setDays] = useState(30);
@@ -115,6 +115,20 @@ export default function Analytics({ loader, compact = false }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeCat, setActiveCat] = useState(null);
+
+  const [checking, setChecking] = useState(null);
+  const checkFeeds = async () => {
+    setChecking(0);
+    try {
+      if (onCheckFeeds) await onCheckFeeds((p) => setChecking(p));
+      else await fetchJSON("/feeds/health?run=1");
+      await load(days);
+    } catch (_) {
+      setError("Feed check failed.");
+    } finally {
+      setChecking(null);
+    }
+  };
 
   const load = async (d = days) => {
     setLoading(true);
@@ -197,8 +211,14 @@ export default function Analytics({ loader, compact = false }) {
             delta={data.kpis.today - data.kpis.yesterday} hint="vs yesterday" />
           <Kpi icon={<Newspaper size={13} />} label="Rehamna mentions" value={data.kpis.rehamna}
             hint={data.kpis.period ? `${Math.round((100 * data.kpis.rehamna) / data.kpis.period)}% of articles` : ""} />
-          <Kpi icon={<Rss size={13} />} label="Active sources" value={data.kpis.sources}
-            hint={`of ${data.kpis.feeds} feeds`} />
+          {data.feedHealth ? (
+            <Kpi icon={<Rss size={13} />} label="Working feeds" value={data.feedHealth.ok + data.feedHealth.warnings}
+              hint={data.feedHealth.errors
+                ? `of ${data.feedHealth.total} · ${data.feedHealth.errors} not working`
+                : `of ${data.feedHealth.total} · all alive ✓`} />
+          ) : (
+            <Kpi icon={<Rss size={13} />} label="Feeds" value={data.kpis.feeds} hint="not checked yet — tap Check now" />
+          )}
 
           <Panel title="Articles per day" subtitle="All stored articles and those mentioning Rehamna" className="col-span-2 lg:col-span-4">
             <div className="mb-2 flex gap-4 text-[11px] text-zinc-600 dark:text-zinc-300">
@@ -318,6 +338,51 @@ export default function Analytics({ loader, compact = false }) {
                 </li>
               ))}
             </ul>
+          </Panel>
+          <Panel title="Feed health"
+            subtitle={data.feedHealth
+              ? `Checked ${new Date(data.feedHealth.checkedAt).toLocaleString()} · ${data.feedHealth.total} feeds`
+              : "Every feed is checked for SSL, HTTP and XML problems"}
+            className="col-span-2 lg:col-span-4">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {data.feedHealth && (
+                <>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[12px] font-semibold text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle2 size={13} /> {data.feedHealth.ok} working
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-[12px] font-semibold text-amber-700 dark:text-amber-400">
+                    <AlertTriangle size={13} /> {data.feedHealth.warnings} with warnings
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-1 text-[12px] font-semibold text-red-700 dark:text-red-400">
+                    <ShieldAlert size={13} /> {data.feedHealth.errors} not working
+                  </span>
+                </>
+              )}
+              <button onClick={checkFeeds} disabled={checking !== null}
+                className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-60 dark:bg-white dark:text-zinc-900">
+                <RefreshCw size={13} className={checking !== null ? "animate-spin" : ""} />
+                {checking !== null ? (checking ? `Checking… ${Math.round(checking * 100)}%` : "Checking…") : "Check now"}
+              </button>
+            </div>
+            {data.feedHealth && data.feedHealth.problems.length === 0 && (
+              <div className="text-[13px] text-emerald-700 dark:text-emerald-400">All {data.feedHealth.total} feeds are alive — no SSL, HTTP or XML problems.</div>
+            )}
+            {data.feedHealth && data.feedHealth.problems.length > 0 && (
+              <ul className="divide-y divide-black/[0.06] dark:divide-white/[0.08]">
+                {data.feedHealth.problems.map((p) => (
+                  <li key={p.url} className="flex items-start gap-2.5 py-2 text-[12px]">
+                    <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${p.level === "error" ? "bg-red-500" : "bg-amber-500"}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-baseline gap-x-2">
+                        <span className="font-semibold text-zinc-900 dark:text-zinc-100">{p.source}</span>
+                        <span className={p.level === "error" ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}>{p.reason}</span>
+                      </div>
+                      <div className="truncate text-zinc-500" dir="ltr" title={p.detail || p.url}>{p.url}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Panel>
         </motion.div>
       )}

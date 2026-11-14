@@ -941,6 +941,12 @@ def safe_parse_feed(url, return_status=False):
         entry_count = len(feed.entries) if feed.entries else 0
         status["entry_count"] = entry_count
 
+        http_status = getattr(feed, "status", None)
+        if http_status and http_status >= 400:
+            status["status"] = "error"
+            status["error_message"] = f"HTTP {http_status} error"
+            return (None, status) if return_status else None
+
         if feed.bozo:
             warning_msg = str(feed.bozo_exception) if feed.bozo_exception else "Unknown parse warning"
 
@@ -2037,6 +2043,100 @@ def basic_deduplication(articles):
             unique.append(article)
     return unique
 
+
+# ---------------------------------------------------------------------------
+# Feed health: last result of checking every feed URL, with a readable reason
+# ---------------------------------------------------------------------------
+LAST_FEED_HEALTH = {"checked_at": None, "results": []}
+
+
+def classify_feed_problem(status, message, entry_count=0):
+    """Turn a feedparser / requests error into a short reason people understand."""
+    m = (message or "").lower()
+    if status != "error":
+        if not m:
+            return "OK"
+        if "recovered" in m or "not well-formed" in m or "invalid token" in m or "mismatched" in m:
+            return "XML errors (repaired automatically)"
+        if "encoding" in m or "declared as" in m:
+            return "Wrong text encoding (read anyway)"
+        return "Minor feed warnings"
+    if "certificate" in m or "ssl" in m or "tls" in m:
+        return "SSL certificate error"
+    if "timed out" in m or "timeout" in m:
+        return "Timeout (site too slow)"
+    if "name or service not known" in m or "nodename" in m or "getaddrinfo" in m or "resolve" in m:
+        return "Site not found (DNS)"
+    if "tunnel connection failed" in m or "proxy" in m:
+        return "Connection blocked (proxy/firewall)"
+    if "connection refused" in m or "connection reset" in m or "remote end closed" in m:
+        return "Connection refused"
+    hm = re.search(r"\b(4\d\d|5\d\d)\b", m)
+    if hm and ("http" in m or "error" in m or "status" in m):
+        return f"HTTP {hm.group(1)} error"
+    if "no entries" in m:
+        return "Feed is empty"
+    if "text/html" in m or "html" in m or "is not an xml media type" in m:
+        return "Not an RSS feed (HTML page)"
+    if "not well-formed" in m or "syntax error" in m or "mismatched" in m or "invalid token" in m:
+        return "Broken XML"
+    return "Unreadable feed"
+
+
+def record_feed_health(feed_statuses):
+    results = []
+    for f in feed_statuses:
+        status = f.get("status", "error")
+        level = "ok" if status == "ok" else ("warning" if status != "error" else "error")
+        reason = classify_feed_problem(status, f.get("error_message"), f.get("entry_count", 0))
+        if level == "warning" and reason == "OK":
+            level = "ok"
+        results.append({
+            "source": f.get("source"),
+            "url": f.get("url"),
+            "level": level,
+            "reason": reason,
+            "detail": (f.get("error_message") or "")[:300],
+            "items": f.get("entry_count", 0),
+        })
+    LAST_FEED_HEALTH["checked_at"] = datetime.now(timezone.utc).isoformat()
+    LAST_FEED_HEALTH["results"] = results
+    return LAST_FEED_HEALTH
+
+
+def feed_health_summary():
+    res = LAST_FEED_HEALTH["results"]
+    if not res:
+        return None
+    problems = [r for r in res if r["level"] != "ok"]
+    problems.sort(key=lambda r: (r["level"] != "error", r["source"] or ""))
+    return {
+        "checkedAt": LAST_FEED_HEALTH["checked_at"],
+        "total": len(res),
+        "ok": sum(r["level"] == "ok" for r in res),
+        "warnings": sum(r["level"] == "warning" for r in res),
+        "errors": sum(r["level"] == "error" for r in res),
+        "problems": problems,
+    }
+
+
+@app.route("/feeds/health", methods=["GET"])
+def feeds_health():
+    """Last feed check. ?run=1 checks every feed now (in parallel)."""
+    if request.args.get("run") == "1":
+        from concurrent.futures import ThreadPoolExecutor
+        links = load_json_file("json/links.json")
+        jobs = [(src, url) for src, urls in links.items() for url in urls]
+
+        def check(job):
+            src, url = job
+            _, st = safe_parse_feed(url, return_status=True)
+            return {"source": src, "url": url, **st}
+
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            record_feed_health(list(pool.map(check, jobs)))
+    return jsonify(feed_health_summary() or {"total": 0, "problems": []})
+
 def save_feed_health_report(feed_statuses):
     """
     Save an Excel report listing every RSS feed URL checked during this run,
@@ -2046,6 +2146,7 @@ def save_feed_health_report(feed_statuses):
     feed_statuses: list of dicts with keys:
         source, url, status, entry_count, error_message, checked_at
     """
+    record_feed_health(feed_statuses)
     if not feed_statuses:
         return None
 
@@ -2896,6 +2997,7 @@ def analytics_overview():
             "feeds": feeds,
             "uptime": format_timedelta(uptime),
         },
+        "feedHealth": feed_health_summary(),
         "timeline": timeline,
         "categories": [{"name": k, "value": v} for k, v in cats.most_common()],
         "sources": [{"name": k, "value": v} for k, v in srcs.most_common(10)],

@@ -76,7 +76,12 @@ In the app: **sidebar → Front page PDF…** (or the **PDF** button in the Reha
 6. **Feed management** — add a website and Delon finds its RSS feed (`json/links.json`).
 7. **Social share analytics** (SharedCount, optional).
 8. **Daily Excel & Word reports** and feed-health reports.
-9. **Analytics dashboard** — animated KPIs, articles per day (with Rehamna overlay), categories
+9. **Feed health** — every feed URL is checked on each update (and with **Check now**):
+   the dashboard shows **Working feeds: X of 90** and lists each problem with its reason —
+   SSL certificate error, HTTP 403/404/500, timeout, site not found, HTML page instead of a
+   feed, empty feed, broken XML, or XML errors that were repaired automatically.
+   API: `GET /feeds/health` (last check) · `GET /feeds/health?run=1` (check all now).
+10. **Analytics dashboard** — animated KPIs, articles per day (with Rehamna overlay), categories
    donut, top sources, publishing hours and most-mentioned places for 7 / 30 / 90 days
    (`GET /analytics/overview?days=30`).
 

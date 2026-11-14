@@ -3,7 +3,7 @@ import linksData from "../../data/links.json";
 
 const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-export function overview(articles, days, feedsCount) {
+export function overview(articles, days, feedsCount, feedHealth = null) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const since = new Date(today.getTime() - (days - 1) * 86400000);
@@ -39,6 +39,7 @@ export function overview(articles, days, feedsCount) {
       feeds: feedsCount || Object.values(linksData).reduce((a, v) => a + v.length, 0),
       uptime: "on device",
     },
+    feedHealth,
     timeline,
     categories: sorted(cats, 10),
     sources: sorted(srcs, 10),
