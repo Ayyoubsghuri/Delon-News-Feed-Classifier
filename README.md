@@ -117,9 +117,12 @@ runs inside the phone:
 - **AI summaries / editorial**: optional — paste an OpenRouter key in Settings.
 - Manage sources (add a site, remove a site) and edit the Rehamna words in Settings.
 
-Its own mobile design: bottom tab bar (Home · Rehamna · Saved · Stats · Settings), photo cards,
-a featured story, category chips, full-screen articles with a parallax photo, bottom sheets and
-swipe-friendly animations. Preview it in a browser with `http://localhost:3000/?mobile=1`.
+Its own mobile design — a vintage **"Gazette" newspaper look**: cream paper, dark-brown ink and
+rust accents, serif headlines, a **DELON** masthead with volume number, section tabs
+(الصفحة الأولى + categories), a framed lead story with photo credit, an "In this edition"
+grid, dispatch rows, a "Dispatch" article view with an enlarged first word and reading
+progress, **The Archives** for saved stories, a Rehamna edition page (today + yesterday by
+default) and a night mode. Preview it in a browser with `http://localhost:3000/?mobile=1`.
 
 <p align="center">
   <img src="screenshots/mobile-home.png" width="24%" alt="Home" />

@@ -1,8 +1,8 @@
 import React, { useRef, useState } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
-import { ChevronLeft, Bookmark, Share2, ExternalLink, Trash2, Sparkles, Loader2 } from "lucide-react";
-import { timeAgo, firstImage, toParagraphs, stripHtml } from "../lib/format";
-import { CategoryTag, Favicon } from "./ui";
+import { AnimatePresence, motion, useScroll, useSpring } from "framer-motion";
+import { ArrowLeft, Bookmark, Share2, ExternalLink, Trash2, Sparkles, Loader2 } from "lucide-react";
+import { toParagraphs, stripHtml } from "../lib/format";
+import { Photo, shortDate, dek } from "./ui";
 import { openExternal } from "../lib/api";
 import { summarize } from "./engine/ai";
 
@@ -15,25 +15,14 @@ async function shareArticle(a) {
   }
 }
 
-const Glass = ({ children, onClick, active }) => (
-  <motion.button whileTap={{ scale: 0.85 }} onClick={onClick}
-    className={`flex h-10 w-10 items-center justify-center rounded-full backdrop-blur-md ${active ? "bg-[#b4161b] text-white" : "bg-black/35 text-white"}`}>
-    {children}
-  </motion.button>
-);
-
 export default function ArticleScreen({ article, onBack, onToggleBookmark, onDelete, notify }) {
   const scrollRef = useRef(null);
-  const { scrollY } = useScroll({ container: scrollRef });
-  const heroY = useTransform(scrollY, [0, 300], [0, 90]);
-  const heroScale = useTransform(scrollY, [-150, 0], [1.25, 1]);
-  const barOpacity = useTransform(scrollY, [180, 260], [0, 1]);
+  const { scrollYProgress } = useScroll({ container: scrollRef });
+  const progress = useSpring(scrollYProgress, { stiffness: 200, damping: 30 });
   const [summary, setSummary] = useState(article.summary || null);
   const [busy, setBusy] = useState(false);
-  const [imgOk, setImgOk] = useState(true);
-  const image = firstImage(article);
-  const hasHero = image && imgOk;
   const paragraphs = toParagraphs(article.content || article.description);
+  const [firstWord, ...restWords] = (paragraphs[0] || "").split(" ");
 
   const runSummary = async () => {
     setBusy(true);
@@ -47,84 +36,80 @@ export default function ArticleScreen({ article, onBack, onToggleBookmark, onDel
   };
 
   return (
-    <motion.div
-      className="fixed inset-0 z-40 bg-white dark:bg-[#121214]"
-      initial={{ x: "100%" }}
-      animate={{ x: 0 }}
-      exit={{ x: "100%" }}
-      transition={{ type: "spring", stiffness: 360, damping: 38 }}
-    >
-      {/* top bar (fades in when scrolled) */}
-      <motion.div style={{ opacity: hasHero ? barOpacity : 1 }}
-        className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[calc(env(safe-area-inset-top)+60px)] bg-white/90 dark:bg-[#121214]/90 backdrop-blur border-b border-black/5 dark:border-white/10" />
-      <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-2 px-4 pt-[calc(env(safe-area-inset-top)+10px)]">
-        <Glass onClick={onBack}><ChevronLeft size={22} /></Glass>
-        <div className="flex-1" />
-        <Glass onClick={onToggleBookmark} active={article.bookmarked}>
-          <motion.span key={String(article.bookmarked)} animate={{ scale: [0.6, 1.2, 1] }} className="flex">
-            <Bookmark size={18} className={article.bookmarked ? "fill-white" : ""} />
-          </motion.span>
-        </Glass>
-        <Glass onClick={() => shareArticle(article)}><Share2 size={18} /></Glass>
+    <motion.div className="gz fixed inset-0 z-40" initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+      transition={{ type: "spring", stiffness: 360, damping: 38 }}>
+      {/* top bar */}
+      <div className="paper line absolute inset-x-0 top-0 z-20 border-b pt-[env(safe-area-inset-top)]">
+        <div className="flex h-14 items-center gap-2 px-3" dir="ltr">
+          <motion.button whileTap={{ scale: 0.85 }} onClick={onBack} className="ink flex items-center gap-1.5 px-1">
+            <ArrowLeft size={18} /> <span className="label">Dispatch</span>
+          </motion.button>
+          <div className="flex-1" />
+          <motion.button whileTap={{ scale: 0.85 }} onClick={() => shareArticle(article)}
+            className="bg-rust flex h-9 w-9 items-center justify-center rounded-full text-white"><Share2 size={16} /></motion.button>
+          <motion.button whileTap={{ scale: 0.85 }} onClick={onToggleBookmark} className="rust flex h-9 w-9 items-center justify-center">
+            <motion.span key={String(article.bookmarked)} animate={{ scale: [0.6, 1.2, 1] }} className="flex">
+              <Bookmark size={19} fill={article.bookmarked ? "currentColor" : "none"} />
+            </motion.span>
+          </motion.button>
+        </div>
+        <motion.div className="bg-rust h-[2px] origin-left" style={{ scaleX: progress }} />
       </div>
 
-      <div ref={scrollRef} className="h-full overflow-y-auto overscroll-contain">
-        {hasHero ? (
-          <div className="relative h-[46vh] min-h-[280px] overflow-hidden bg-zinc-200 dark:bg-zinc-800">
-            <motion.img src={image} alt="" onError={() => setImgOk(false)} style={{ y: heroY, scale: heroScale }}
-              className="absolute inset-0 h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30" />
-          </div>
-        ) : (
-          <div className="h-[calc(env(safe-area-inset-top)+70px)]" />
-        )}
+      <div ref={scrollRef} className="h-full overflow-y-auto overscroll-contain pt-[calc(env(safe-area-inset-top)+58px)]">
+        <motion.article dir="rtl" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.45 }}
+          className="px-6 pb-16 pt-7">
+          <div className="label rust text-center" style={{ fontSize: 11, letterSpacing: "0.12em" }}>{article.category || "رسالة خاصة"}</div>
+          <h1 className="serif ink selectable mt-3 text-center text-[27px] font-bold leading-[1.5]">{stripHtml(article.title)}</h1>
+          <div className="mx-auto mt-4 h-px w-16 bg-[var(--line)]" />
+          <div className="label muted mt-3 text-center" dir="ltr" style={{ fontSize: 10 }}>By {article.source}</div>
+          <div className="mono muted mt-1 text-center text-[9.5px]" dir="ltr">{shortDate(article.pubDate)} · {article.source}</div>
 
-        <motion.article
-          dir="rtl"
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.12, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-          className={`relative rounded-t-[28px] bg-white dark:bg-[#121214] px-5 pb-32 pt-6 ${hasHero ? "-mt-8" : ""}`}
-        >
-          <CategoryTag category={article.category} />
-          <h1 className="mt-3 text-[25px] font-extrabold leading-[1.45] text-zinc-900 dark:text-white">{stripHtml(article.title)}</h1>
-          <div className="mt-3 flex items-center gap-2 text-[13px] text-zinc-500" dir="ltr">
-            <Favicon source={article.source} link={article.link} size={18} />
-            <span className="font-semibold text-zinc-700 dark:text-zinc-300">{article.source}</span>
-            <span>·</span>
-            <span>{timeAgo(article.pubDate)}</span>
-          </div>
+          <Photo article={article} className="mt-6 aspect-[16/10] w-full rounded-xl" />
+          <p className="serif muted mt-3 text-center text-[13.5px] italic leading-7">{dek(article, 180)}</p>
 
-          <motion.button whileTap={{ scale: 0.97 }} onClick={runSummary} disabled={busy}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-violet-600 to-fuchsia-600 py-3 text-[14px] font-bold text-white shadow-lg shadow-violet-600/20">
-            {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            {summary ? "تحديث الملخص بالذكاء الاصطناعي" : "تلخيص بالذكاء الاصطناعي"}
-          </motion.button>
+          <div className="double-rule mt-6" />
 
-          {summary && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-              className="mt-4 overflow-hidden rounded-2xl bg-violet-50 dark:bg-violet-950/40 p-4 text-[15px] leading-8 text-zinc-800 dark:text-zinc-100">
-              {summary}
-            </motion.div>
-          )}
+          <AnimatePresence>
+            {summary && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="overflow-hidden">
+                <div className="card mt-5 rounded-xl p-4">
+                  <div className="label rust mb-1.5 flex items-center gap-1" dir="ltr"><Sparkles size={12} /> Editor's summary</div>
+                  <p className="serif ink selectable text-[15px] leading-8">{summary}</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <div className="mt-6 space-y-5 text-[17.5px] leading-[2] text-zinc-800 dark:text-zinc-200" style={{ fontFamily: "'Wafeq', 'Noto Naskh Arabic', serif" }}>
-            {paragraphs.map((p, i) => (
-              <motion.p key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + Math.min(i, 6) * 0.05 }}>
-                {p}
+          <div className="serif ink selectable mt-6 space-y-5 text-justify text-[18px] leading-[2.05]">
+            {paragraphs.length > 0 && (
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+                <span className="rust text-[30px] font-bold leading-none">{firstWord} </span>
+                {restWords.join(" ")}
               </motion.p>
+            )}
+            {paragraphs.slice(1).map((p, i) => (
+              <motion.p key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 + Math.min(i, 6) * 0.05 }}>{p}</motion.p>
             ))}
           </div>
 
-          <div className="mt-10 grid grid-cols-2 gap-3" dir="ltr">
-            <button onClick={() => openExternal(article.link)}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-zinc-100 dark:bg-zinc-800 py-3 text-[14px] font-semibold text-zinc-800 dark:text-zinc-100">
-              <ExternalLink size={16} /> Open site
-            </button>
-            <button onClick={onDelete}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-red-50 dark:bg-red-950/50 py-3 text-[14px] font-semibold text-red-600">
-              <Trash2 size={16} /> Delete
-            </button>
+          <div className="mt-8 flex items-center justify-center gap-2" aria-hidden>
+            <span className="h-px w-10 bg-[var(--line)]" /><span className="rust text-xs">❦</span><span className="h-px w-10 bg-[var(--line)]" />
+          </div>
+
+          <div className="mt-7 space-y-2.5" dir="ltr">
+            <motion.button whileTap={{ scale: 0.97 }} onClick={runSummary} disabled={busy}
+              className="bg-rust flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white">
+              {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} تلخيص بالذكاء الاصطناعي
+            </motion.button>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button onClick={() => openExternal(article.link)} className="card ink flex items-center justify-center gap-2 rounded-xl py-3 text-[13.5px] font-semibold">
+                <ExternalLink size={15} /> Open site
+              </button>
+              <button onClick={onDelete} className="card flex items-center justify-center gap-2 rounded-xl py-3 text-[13.5px] font-semibold text-[#a3322a]">
+                <Trash2 size={15} /> Delete
+              </button>
+            </div>
           </div>
         </motion.article>
       </div>
