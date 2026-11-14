@@ -82,7 +82,7 @@ In the app: **sidebar → Front page PDF…** (or the **PDF** button in the Reha
    feed, empty feed, broken XML, or XML errors that were repaired automatically.
    API: `GET /feeds/health` (last check) · `GET /feeds/health?run=1` (check all now).
 10. **Analytics dashboard** — animated KPIs, articles per day (with Rehamna overlay), categories
-   donut, top sources, publishing hours and most-mentioned places for 7 / 30 / 90 days
+   donut, top sources, publishing hours and feed health for 7 / 30 / 90 days
    (`GET /analytics/overview?days=30`).
 
    ![Analytics](screenshots/analytics-dark.png)

@@ -155,7 +155,6 @@ export default function Analytics({ loader, compact = false, onCheckFeeds }) {
     if (!data) return null;
     return data.hours.reduce((m, h) => (h.value > m.value ? h : m), { hour: 0, value: 0 });
   }, [data]);
-  const maxPlace = data && data.places.length ? data.places[0].value : 1;
 
   const axis = { stroke: pal.axis, fontSize: 11, tickLine: false, axisLine: false };
 
@@ -302,7 +301,7 @@ export default function Analytics({ loader, compact = false, onCheckFeeds }) {
 
           <Panel title="Publishing hours"
             subtitle={peakHour && peakHour.value ? `Most news is published around ${String(peakHour.hour).padStart(2, "0")}:00` : "Hour of publication"}
-            className="col-span-2">
+            className="col-span-2 lg:col-span-4">
             <div className="h-44">
               <ResponsiveContainer>
                 <BarChart data={data.hours} margin={{ top: 6, right: 4, left: -24, bottom: 0 }} barCategoryGap={2}>
@@ -321,24 +320,6 @@ export default function Analytics({ loader, compact = false, onCheckFeeds }) {
             </div>
           </Panel>
 
-          <Panel title="Most mentioned places" subtitle="From the places watch-list" className="col-span-2">
-            {data.places.length === 0 && <div className="text-[12px] text-zinc-500">No places matched in this period.</div>}
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
-              {data.places.map((p, i) => (
-                <li key={p.name} className="text-[12px]">
-                  <div className="flex items-center justify-between gap-2">
-                    <span dir="auto" className="truncate text-zinc-700 dark:text-zinc-200">{p.name}</span>
-                    <span className="tabular-nums font-medium text-zinc-900 dark:text-white">{p.value}</span>
-                  </div>
-                  <div className="mt-1 h-1.5 rounded-full bg-black/[0.05] dark:bg-white/[0.08] overflow-hidden">
-                    <motion.div className="h-full rounded-full" style={{ background: pal.series[2] }}
-                      initial={{ width: 0 }} animate={{ width: `${(100 * p.value) / maxPlace}%` }}
-                      transition={{ duration: 0.8, delay: 0.2 + i * 0.04, ease: [0.22, 1, 0.36, 1] }} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </Panel>
           <Panel title="Feed health"
             subtitle={data.feedHealth
               ? `Checked ${new Date(data.feedHealth.checkedAt).toLocaleString()} · ${data.feedHealth.total} feeds`
