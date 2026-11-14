@@ -21,12 +21,13 @@ It runs as a **website**, a **Windows app (`Delon.exe`)** and an **Android app (
 
 | Platform | File | Where to get it |
 |---|---|---|
-| Windows 10/11 | `Delon.exe` | **Actions → Build Windows app → Artifacts** (or the release assets for a `v*` tag) |
-| Android | `Delon.apk` | **Actions → Build Android app → Artifacts** (or the release assets for a `v*` tag) |
+| Windows 10/11 | `Delon.exe` | **Releases → latest** (or Actions → Build Windows app → Artifacts) |
+| Android | `Delon.apk` | **Releases → latest** (or Actions → Build Android app → Artifacts) |
 | Web / server | — | `python main.py` (see [Run from source](#-run-from-source)) |
 
 Both apps are built automatically by GitHub Actions on every push to `main` (and `claude/**`
-branches). Push a tag such as `v3.0.0` to publish them in a GitHub release.
+branches) and published to the GitHub **Releases** page as `v<VERSION>` (see the `VERSION`
+file — bump it to start a new release).
 
 ---
 
