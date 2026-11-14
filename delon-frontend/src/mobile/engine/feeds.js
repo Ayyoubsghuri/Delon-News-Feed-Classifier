@@ -47,10 +47,31 @@ export async function addFeed(input) {
   return { ok: false, domain };
 }
 
+// Rehamna words: the user's edited list, plus any new words added to the
+// app's default list since they last saved it.
+async function rehamnaTerms() {
+  const saved = await kvGet("terms.rehamna", null);
+  if (!saved) return DEFAULT_REHAMNA;
+  const seen = await kvGet("terms.rehamna.defaults", []);
+  const fresh = DEFAULT_REHAMNA.filter((t) => !seen.includes(t) && !saved.includes(t));
+  if (fresh.length || seen.length !== DEFAULT_REHAMNA.length) {
+    const merged = [...saved, ...fresh];
+    await kvSet("terms.rehamna", merged);
+    await kvSet("terms.rehamna.defaults", DEFAULT_REHAMNA);
+    return merged;
+  }
+  return saved;
+}
+
+export async function saveRehamnaTerms(list) {
+  await kvSet("terms.rehamna", list);
+  await kvSet("terms.rehamna.defaults", DEFAULT_REHAMNA);
+}
+
 export const getTerms = async () => ({
   places: await kvGet("terms.places", DEFAULT_PLACES),
   keywords: await kvGet("terms.keywords", DEFAULT_KEYWORDS),
-  rehamna: await kvGet("terms.rehamna", DEFAULT_REHAMNA),
+  rehamna: await rehamnaTerms(),
 });
 
 // ---------- parsing ----------
@@ -153,7 +174,7 @@ async function pool(items, limit, fn) {
  */
 export async function syncAll({ onProgress, firstRun } = {}) {
   const feeds = await getFeeds();
-  const { places, keywords } = await getTerms();
+  const { places, keywords, rehamna } = await getTerms();
   const deleted = new Set(await kvGet("deleted.titles", []));
   const existing = await getAllArticles();
   const byLink = new Map(existing.map((a) => [a.link, a]));
@@ -202,7 +223,9 @@ export async function syncAll({ onProgress, firstRun } = {}) {
           matched_places: m.places.join(", "),
           savedAt: Date.now(),
         };
-        (m.places.length ? unique : others).push(article);
+        // Rehamna stories are always kept, even without a watch-list keyword.
+        const isRehamna = rehamnaMatches(text, rehamna).length > 0;
+        (m.places.length || isRehamna ? unique : others).push(article);
       }
     } catch (_) {
       broken++;

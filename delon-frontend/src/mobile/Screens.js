@@ -6,7 +6,7 @@ import { isToday, timeAgo } from "../lib/format";
 import { CATEGORIES } from "./engine/classify";
 import { buildNewspaper, collect, savePdf } from "./engine/newspaper";
 import { editorial as aiEditorial, aiConfig } from "./engine/ai";
-import { getFeeds, addFeed, removeFeed, getTerms } from "./engine/feeds";
+import { getFeeds, addFeed, removeFeed, getTerms, saveRehamnaTerms } from "./engine/feeds";
 import { kvGet, kvSet, clearAll } from "./engine/store";
 import { stripHtml } from "./engine/classify";
 import Analytics from "../components/reader/Analytics";
@@ -152,9 +152,25 @@ export function HomeScreen({ articles, readIds, onOpen, syncing, progress, last,
 // ---------------------------------------------------------------- rehamna
 export function RehamnaScreen({ articles, readIds, onOpen, notify }) {
   const [sheet, setSheet] = useState(false);
+  const [period, setPeriod] = useState("recent"); // today + yesterday by default
   const reh = articles.filter((a) => a.rehamna);
-  const todayCount = reh.filter((a) => isToday(a.pubDate)).length;
-  const weekCount = reh.filter((a) => Date.now() - new Date(a.pubDate) < 7 * 86400000).length;
+  const dayStart = (offset) => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - offset);
+    return d;
+  };
+  const pub = (a) => new Date(a.pubDate);
+  const todayList = reh.filter((a) => pub(a) >= dayStart(0));
+  const yesterdayList = reh.filter((a) => pub(a) >= dayStart(1) && pub(a) < dayStart(0));
+  const weekList = reh.filter((a) => pub(a) >= dayStart(6));
+  const shown = {
+    recent: [...todayList, ...yesterdayList],
+    today: todayList,
+    yesterday: yesterdayList,
+    week: weekList,
+    all: reh,
+  }[period];
 
   return (
     <div className="pb-28">
@@ -168,8 +184,9 @@ export function RehamnaScreen({ articles, readIds, onOpen, notify }) {
             <div className="text-[13px] font-semibold text-white/80">جريدة الرحامنة اليومية</div>
             <div className="mt-1 text-[26px] font-black">أخبار الرحامنة</div>
             <div className="mt-4 flex gap-6">
-              <div><div className="text-[28px] font-black tabular-nums">{todayCount}</div><div className="text-[12px] text-white/75">خبر اليوم</div></div>
-              <div><div className="text-[28px] font-black tabular-nums">{weekCount}</div><div className="text-[12px] text-white/75">هذا الأسبوع</div></div>
+              <div><div className="text-[28px] font-black tabular-nums">{todayList.length}</div><div className="text-[12px] text-white/75">اليوم</div></div>
+              <div><div className="text-[28px] font-black tabular-nums">{yesterdayList.length}</div><div className="text-[12px] text-white/75">أمس</div></div>
+              <div><div className="text-[28px] font-black tabular-nums">{weekList.length}</div><div className="text-[12px] text-white/75">هذا الأسبوع</div></div>
             </div>
             <motion.button whileTap={{ scale: 0.96 }} onClick={() => setSheet(true)}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3.5 text-[15px] font-extrabold text-[#b4161b]">
@@ -179,11 +196,26 @@ export function RehamnaScreen({ articles, readIds, onOpen, notify }) {
         </motion.div>
       </div>
 
-      <div className="mt-5 space-y-3 px-4">
-        {reh.length === 0 ? (
-          <Empty icon="🗞️" title="لا توجد أخبار عن الرحامنة بعد" text="Update the news from the Home tab." />
+      <div className="no-scrollbar mt-5 flex gap-2 overflow-x-auto px-4" dir="rtl">
+        {[["recent", "اليوم وأمس"], ["today", "اليوم"], ["yesterday", "أمس"], ["week", "الأسبوع"], ["all", "الكل"]].map(([v, label]) => (
+          <button key={v} onClick={() => setPeriod(v)}
+            className={`relative shrink-0 rounded-full px-4 py-2 text-[13px] font-bold ${period === v ? "text-white" : "text-zinc-600 dark:text-zinc-300 bg-white dark:bg-[#1f2023] ring-1 ring-black/5 dark:ring-white/10"}`}>
+            {period === v && (
+              <motion.span layoutId="reh-chip" className="absolute inset-0 rounded-full bg-[#b4161b]"
+                transition={{ type: "spring", stiffness: 500, damping: 38 }} />
+            )}
+            <span className="relative">{label}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 space-y-3 px-4">
+        {shown.length === 0 ? (
+          <Empty icon="🗞️"
+            title={reh.length ? "لا توجد أخبار عن الرحامنة في هذه الفترة" : "لا توجد أخبار عن الرحامنة بعد"}
+            text={reh.length ? "اختر الأسبوع أو الكل لرؤية أخبار أقدم." : "Update the news from the Home tab."} />
         ) : (
-          reh.map((a, i) => <ArticleCard key={a.id} article={a} index={i} unread={!readIds.has(a.id)} onOpen={onOpen} />)
+          shown.map((a, i) => <ArticleCard key={a.id} article={a} index={i} unread={!readIds.has(a.id)} onOpen={onOpen} />)
         )}
       </div>
 
@@ -195,7 +227,7 @@ export function RehamnaScreen({ articles, readIds, onOpen, notify }) {
 }
 
 function NewspaperSheet({ articles, onClose, notify }) {
-  const [days, setDays] = useState(1);
+  const [days, setDays] = useState(2);
   const [useAi, setUseAi] = useState(true);
   const [hasKey, setHasKey] = useState(false);
   const [busy, setBusy] = useState(null); // {msg, p}
@@ -233,7 +265,7 @@ function NewspaperSheet({ articles, onClose, notify }) {
         A newspaper-style front page with photos, built on your phone from every article about Rehamna.
       </p>
       <div className="mb-2 text-[12px] font-bold uppercase tracking-wide text-zinc-400">Period</div>
-      <Segmented id="np" value={days} onChange={setDays} options={[[1, "Today"], [3, "3 days"], [7, "Week"], [30, "Month"]]} />
+      <Segmented id="np" value={days} onChange={setDays} options={[[1, "اليوم"], [2, "اليوم وأمس"], [7, "الأسبوع"], [30, "الشهر"]]} />
       <label className="mt-5 flex items-center justify-between rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 px-4 py-3">
         <span className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-100">
           AI editorial
@@ -390,7 +422,7 @@ export function SettingsScreen({ theme, setTheme, notify, onDataChanged }) {
             <p className="mb-3 text-[13px] text-zinc-500">One word or phrase per line. Articles containing any of them appear in the Rehamna tab and newspaper.</p>
             <textarea dir="auto" rows={12} className={field} value={terms} onChange={(e) => setTerms(e.target.value)} />
             <button className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#b4161b] py-3.5 font-bold text-white" onClick={async () => {
-              await kvSet("terms.rehamna", terms.split("\n").map((s) => s.trim()).filter(Boolean));
+              await saveRehamnaTerms(terms.split("\n").map((s) => s.trim()).filter(Boolean));
               onDataChanged();
               setSheet(null);
               notify("Saved");

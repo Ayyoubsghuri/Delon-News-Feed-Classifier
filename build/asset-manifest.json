@@ -1,8 +1,8 @@
 {
   "files": {
     "main.css": "/static/css/main.006602ad.css",
-    "main.js": "/static/js/main.e85c8d3b.js",
-    "static/js/499.aa735aeb.chunk.js": "/static/js/499.aa735aeb.chunk.js",
+    "main.js": "/static/js/main.fa693fa5.js",
+    "static/js/499.8f41bf3f.chunk.js": "/static/js/499.8f41bf3f.chunk.js",
     "static/js/672.915a5d00.chunk.js": "/static/js/672.915a5d00.chunk.js",
     "static/js/453.6ca26999.chunk.js": "/static/js/453.6ca26999.chunk.js",
     "static/js/205.3b892563.chunk.js": "/static/js/205.3b892563.chunk.js",
@@ -28,8 +28,8 @@
     "static/media/NotoKufiArabic-Bold.ttf": "/static/media/NotoKufiArabic-Bold.d0b07784de3a9f4bf134.ttf",
     "index.html": "/index.html",
     "main.006602ad.css.map": "/static/css/main.006602ad.css.map",
-    "main.e85c8d3b.js.map": "/static/js/main.e85c8d3b.js.map",
-    "499.aa735aeb.chunk.js.map": "/static/js/499.aa735aeb.chunk.js.map",
+    "main.fa693fa5.js.map": "/static/js/main.fa693fa5.js.map",
+    "499.8f41bf3f.chunk.js.map": "/static/js/499.8f41bf3f.chunk.js.map",
     "672.915a5d00.chunk.js.map": "/static/js/672.915a5d00.chunk.js.map",
     "453.6ca26999.chunk.js.map": "/static/js/453.6ca26999.chunk.js.map",
     "205.3b892563.chunk.js.map": "/static/js/205.3b892563.chunk.js.map",
@@ -47,6 +47,6 @@
   },
   "entrypoints": [
     "static/css/main.006602ad.css",
-    "static/js/main.e85c8d3b.js"
+    "static/js/main.fa693fa5.js"
   ]
 }
