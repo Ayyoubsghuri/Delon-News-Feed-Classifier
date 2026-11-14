@@ -52,9 +52,16 @@ jobs:
           # Allow plain-http servers on the local network (e.g. http://192.168.1.20:5000)
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
-      - name: App icon & splash
+      - name: Splash screen
         continue-on-error: true
         run: npx --yes @capacitor/assets@3 generate --android --assetPath ../assets
+
+      # Our own launcher icons (big DELON wordmark) — written after the splash
+      # step so they replace the generic ones.
+      - name: App icon
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 scripts/android-icons.py
 
       - name: Build APK
         run: |
@@ -69,8 +76,25 @@ jobs:
           name: Delon-android
           path: delon-frontend/Delon.apk
 
-      - name: Attach to release
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Read version
+        id: version
+        shell: bash
+        working-directory: .
+        run: echo "version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+
+      # Publishes (or updates) the GitHub release v<VERSION> with this build.
+      - name: Publish to GitHub release
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Delon v${{ steps.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          overwrite_files: true
+          body: |
+            **Delon v${{ steps.version.outputs.version }}**
+
+            - `Delon.apk` — standalone Android app (works without a PC or server). Allow "Install unknown apps" to install it.
+            - `Delon.exe` — Windows app (backend + reader in one window).
           files: delon-frontend/Delon.apk

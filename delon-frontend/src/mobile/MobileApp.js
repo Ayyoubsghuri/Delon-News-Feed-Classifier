@@ -4,6 +4,7 @@ import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import toast, { Toaster } from "react-hot-toast";
 import { Home, Newspaper, Bookmark, BarChart3, Settings } from "lucide-react";
 import "../css/index.css";
+import "./gazette.css";
 
 import { HomeScreen, RehamnaScreen, SavedScreen, StatsScreen, SettingsScreen } from "./Screens";
 import ArticleScreen from "./ArticleScreen";
@@ -11,16 +12,16 @@ import { syncAll, loadArticles, rememberDeleted } from "./engine/feeds";
 import { putArticles, deleteArticle, kvGet } from "./engine/store";
 
 const TABS = [
-  ["home", "Home", Home],
+  ["home", "Front", Home],
   ["rehamna", "Rehamna", Newspaper],
   ["saved", "Saved", Bookmark],
-  ["stats", "Stats", BarChart3],
-  ["settings", "Settings", Settings],
+  ["stats", "Ledger", BarChart3],
+  ["settings", "Desk", Settings],
 ];
 const AUTO_SYNC_MIN = 30;
 
 const notify = (text) =>
-  toast(text, { position: "top-center", className: "!rounded-full !text-[13px] !font-semibold dark:!bg-zinc-800 dark:!text-white" });
+  toast(text, { position: "bottom-center", className: "!rounded-full !text-[13px] !font-semibold !bg-[#2a2119] !text-[#f3ecdf]" });
 
 function useStored(key, initial) {
   const [v, setV] = useState(() => {
@@ -143,16 +144,16 @@ export default function MobileApp() {
   };
 
   const screens = {
-    home: <HomeScreen articles={articles} readIds={readIds} onOpen={openArticle} syncing={syncing} progress={progress} last={last} onSync={sync} scrollRef={scrollRef} />,
+    home: <HomeScreen articles={articles} readIds={readIds} onOpen={openArticle} syncing={syncing} progress={progress} last={last} onSync={sync} scrollRef={scrollRef} onMenu={() => setTab("settings")} />,
     rehamna: <RehamnaScreen articles={articles} readIds={readIds} onOpen={openArticle} notify={notify} />,
-    saved: <SavedScreen articles={articles} readIds={readIds} onOpen={openArticle} />,
+    saved: <SavedScreen articles={articles} readIds={readIds} onOpen={openArticle} goFront={() => setTab("home")} />,
     stats: <StatsScreen articles={articles} />,
     settings: <SettingsScreen theme={theme} setTheme={setTheme} notify={notify} onDataChanged={reload} />,
   };
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="mobile-app fixed inset-0 bg-[#f2f3f5] dark:bg-[#0e0e10] text-zinc-900 dark:text-zinc-100 font-ui antialiased">
+      <div className="mobile-app gz fixed inset-0 antialiased">
         <div ref={scrollRef} className="no-scrollbar h-full overflow-y-auto overscroll-contain">
           <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}>
@@ -161,21 +162,20 @@ export default function MobileApp() {
         </div>
 
         {/* bottom tab bar */}
-        <nav className="absolute inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+10px)] z-30 grid grid-cols-5 rounded-[26px] bg-white/85 dark:bg-[#1f2023]/85 p-1.5 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.35)] ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-xl">
-          {TABS.map(([id, label, Icon]) => {
-            const active = tab === id;
-            return (
-              <motion.button key={id} whileTap={{ scale: 0.88 }} onClick={() => switchTab(id)}
-                className={`relative flex flex-col items-center gap-0.5 rounded-[20px] py-2 text-[10.5px] font-bold ${active ? "text-white" : "text-zinc-500 dark:text-zinc-400"}`}>
-                {active && (
-                  <motion.span layoutId="tab-pill" className="absolute inset-0 rounded-[20px] bg-[#b4161b]"
-                    transition={{ type: "spring", stiffness: 500, damping: 38 }} />
-                )}
-                <Icon size={20} className="relative" strokeWidth={active ? 2.4 : 2} />
-                <span className="relative">{label}</span>
-              </motion.button>
-            );
-          })}
+        <nav className="paper line absolute inset-x-0 bottom-0 z-30 border-t pb-[env(safe-area-inset-bottom)]">
+          <div className="grid h-[62px] grid-cols-5">
+            {TABS.map(([id, label, Icon]) => {
+              const active = tab === id;
+              return (
+                <motion.button key={id} whileTap={{ scale: 0.86 }} onClick={() => switchTab(id)}
+                  className={`relative flex flex-col items-center justify-center gap-1 ${active ? "rust" : "muted"}`}>
+                  {active && <motion.span layoutId="tab-line" className="bg-rust absolute inset-x-5 top-0 h-[2px]" />}
+                  <Icon size={20} strokeWidth={active ? 2.4 : 1.8} fill={active ? "currentColor" : "none"} fillOpacity={active ? 0.15 : 0} />
+                  <span className="label" style={{ fontSize: 8.5, letterSpacing: "0.14em" }}>{label}</span>
+                </motion.button>
+              );
+            })}
+          </div>
         </nav>
 
         <AnimatePresence>
@@ -183,7 +183,7 @@ export default function MobileApp() {
             <ArticleScreen key={open.id} article={open} onBack={() => setOpen(null)} onToggleBookmark={toggleBookmark} onDelete={remove} notify={notify} />
           )}
         </AnimatePresence>
-        <Toaster />
+        <Toaster containerStyle={{ bottom: "calc(env(safe-area-inset-bottom) + 76px)" }} />
       </div>
     </MotionConfig>
   );

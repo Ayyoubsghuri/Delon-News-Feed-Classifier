@@ -2156,6 +2156,7 @@ def fetch_rss():
     links = load_json_file("json/links.json")
     places = load_json_file("json/places.json").get("keywords", [])
     keywords = load_json_file("json/keywords.json").get("keywords", [])
+    rehamna_terms = newspaper_pdf.load_terms("json")
     deleted_articles = load_deleted_articles()
 
     all_articles = []
@@ -2232,7 +2233,9 @@ def fetch_rss():
                         "share_counts_updated": datetime.now(timezone.utc).isoformat()
                     }
                     
-                    if matched_places and matched_keywords:
+                    # Rehamna stories are always kept, even without a watch-list keyword.
+                    is_rehamna = bool(newspaper_pdf.matches_terms(text, rehamna_terms))
+                    if (matched_places and matched_keywords) or is_rehamna:
                         all_articles.append(article)
                     else:
                         all_articles_notunique.append(article)

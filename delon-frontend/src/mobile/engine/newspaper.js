@@ -339,7 +339,10 @@ export function collect(articles, terms, days = 1, limit = 40) {
   since.setDate(since.getDate() - (days - 1));
   const seen = new Set();
   return articles
-    .filter((a) => new Date(a.savedAt || a.pubDate) >= since)
+    .filter((a) => {
+      const d = new Date(a.pubDate);
+      return (isNaN(d) ? new Date(a.savedAt || 0) : d) >= since;
+    })
     .map((a) => {
       const hits = rehamnaMatches(`${a.title} ${stripHtml(a.description)} ${a.content || ""} ${a.matched_places || ""}`, terms);
       return { a, hits, score: rehamnaMatches(a.title, terms).length * 3 + hits.length };
@@ -376,7 +379,7 @@ export function defaultEditorial(arts, days) {
   const sources = new Set(arts.map((a) => a.source).filter(Boolean));
   const cats = {};
   arts.forEach((a) => (cats[a.category || "مختلفات"] = (cats[a.category || "مختلفات"] || 0) + 1));
-  const period = days <= 1 ? "اليوم" : `خلال آخر ${days} أيام`;
+  const period = days <= 1 ? "اليوم" : days === 2 ? "اليوم وأمس" : `خلال آخر ${days} أيام`;
   const catTxt = Object.entries(cats).sort((a, b) => b[1] - a[1]).map(([c, n]) => `${n} في ${c}`).join("، ");
   const heads = arts.slice(1, 4).map((a) => clip(stripHtml(a.title), 70)).join("؛ ");
   let t = `رصدت هذه النشرة ${arts.length} خبرا يتعلق بإقليم الرحامنة ${period}، نشرتها ${sources.size} من المنابر الإعلامية، وتتوزع على النحو التالي: ${catTxt}. `;
@@ -454,7 +457,7 @@ export async function buildNewspaper(articles, { days = 1, editorial, title = "�
   // ----- masthead -----
   const top = M;
   txt("جريدة إلكترونية تجمع كل ما يُنشر عن إقليم الرحامنة", PW - M, top + 7, UI, 7.5, MUTED);
-  txt(days <= 1 ? "العدد اليومي" : `حصيلة آخر ${days} أيام`, M, top + 7, UI, 7.5, MUTED, "left");
+  txt(days <= 1 ? "العدد اليومي" : days === 2 ? "عدد اليوم وأمس" : `حصيلة آخر ${days} أيام`, M, top + 7, UI, 7.5, MUTED, "left");
   doc.setDrawColor(...INK);
   doc.setLineWidth(0.6);
   doc.line(M, top + 12, PW - M, top + 12);

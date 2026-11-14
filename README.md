@@ -21,12 +21,13 @@ It runs as a **website**, a **Windows app (`Delon.exe`)** and an **Android app (
 
 | Platform | File | Where to get it |
 |---|---|---|
-| Windows 10/11 | `Delon.exe` | **Actions → Build Windows app → Artifacts** (or the release assets for a `v*` tag) |
-| Android | `Delon.apk` | **Actions → Build Android app → Artifacts** (or the release assets for a `v*` tag) |
+| Windows 10/11 | `Delon.exe` | **Releases → latest** (or Actions → Build Windows app → Artifacts) |
+| Android | `Delon.apk` | **Releases → latest** (or Actions → Build Android app → Artifacts) |
 | Web / server | — | `python main.py` (see [Run from source](#-run-from-source)) |
 
 Both apps are built automatically by GitHub Actions on every push to `main` (and `claude/**`
-branches). Push a tag such as `v3.0.0` to publish them in a GitHub release.
+branches) and published to the GitHub **Releases** page as `v<VERSION>` (see the `VERSION`
+file — bump it to start a new release).
 
 ---
 
@@ -116,9 +117,12 @@ runs inside the phone:
 - **AI summaries / editorial**: optional — paste an OpenRouter key in Settings.
 - Manage sources (add a site, remove a site) and edit the Rehamna words in Settings.
 
-Its own mobile design: bottom tab bar (Home · Rehamna · Saved · Stats · Settings), photo cards,
-a featured story, category chips, full-screen articles with a parallax photo, bottom sheets and
-swipe-friendly animations. Preview it in a browser with `http://localhost:3000/?mobile=1`.
+Its own mobile design — a vintage **"Gazette" newspaper look**: cream paper, dark-brown ink and
+rust accents, serif headlines, a **DELON** masthead with volume number, section tabs
+(الصفحة الأولى + categories), a framed lead story with photo credit, an "In this edition"
+grid, dispatch rows, a "Dispatch" article view with an enlarged first word and reading
+progress, **The Archives** for saved stories, a Rehamna edition page (today + yesterday by
+default) and a night mode. Preview it in a browser with `http://localhost:3000/?mobile=1`.
 
 <p align="center">
   <img src="screenshots/mobile-home.png" width="24%" alt="Home" />
